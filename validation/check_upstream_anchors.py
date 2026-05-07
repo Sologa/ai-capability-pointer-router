@@ -69,10 +69,10 @@ def anchor_exists(url: str, timeout: float) -> tuple[bool, str | None]:
             try:
                 with urlopen(url, timeout=timeout) as response:
                     return 200 <= response.status < 400, None
-            except (HTTPError, URLError) as fallback_exc:
+            except (HTTPError, URLError, TimeoutError) as fallback_exc:
                 return False, str(fallback_exc)
         return False, str(exc)
-    except URLError as exc:
+    except (URLError, TimeoutError) as exc:
         return False, str(exc)
 
 
@@ -81,7 +81,7 @@ def fetch_json(url: str, timeout: float) -> tuple[dict | None, str | None]:
     try:
         with urlopen(request, timeout=timeout) as response:
             data = json.load(response)
-    except (HTTPError, URLError, json.JSONDecodeError) as exc:
+    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
         return None, str(exc)
     if not isinstance(data, dict):
         return None, "GitHub API response was not a JSON object"
@@ -146,8 +146,9 @@ def check_registry(registry: dict, ref: str, timeout: float) -> tuple[list[dict]
         if not isinstance(source, dict):
             continue
         owner, repo = github_slug(source.get("repo_url") or source.get("repo") or "")
+        anchors = iter_source_anchors(source_id, source)
         resolved_commit, commit_error = resolve_commit(owner, repo, ref, timeout)
-        for locator, path in iter_source_anchors(source_id, source):
+        for locator, path in anchors:
             url = raw_url(owner, repo, ref, path)
             exists, error = anchor_exists(url, timeout)
             if not exists:

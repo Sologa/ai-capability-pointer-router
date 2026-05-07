@@ -547,8 +547,9 @@ class RouterTreeValidationTests(unittest.TestCase):
                 }
             }
         }
-        with self.assertRaises(ValueError):
-            module.check_registry(registry, "main", 0.01)
+        with mock.patch.object(module, "resolve_commit", side_effect=AssertionError("network touched")):
+            with self.assertRaises(ValueError):
+                module.check_registry(registry, "main", 0.01)
 
     def test_symlink_outside_generated_dirs_fails(self) -> None:
         with copy_repo() as temp:
