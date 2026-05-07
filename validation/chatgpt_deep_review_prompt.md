@@ -128,6 +128,29 @@ Return:
 - missing tests;
 - recommended next implementation steps.
 
+### 6. Clone-Backed And Graph-Backed Target Gap
+
+The current repository is intentionally staged and read-only: `--write-cache` is rejected, dry-run plans require `safety.clone=false` and `safety.fetch=false`, and graph/index schemas are contracts only. However, the intended next-stage design may be a clone-backed local cache where all registered repos can be pulled, pinned, indexed, and optionally graphified on explicit use.
+
+Assess this gap directly.
+
+Check:
+
+- Does any wording such as `materialize_on_first_use`, `git_clone_fetch_checkout`, `materialization decision`, `manifest`, or `graph locator` make readers think clone/fetch/cache or graph output already exists?
+- Should the registry rename fields like `strategy` to `planned_strategy`, or add `implementation_status: dry_run_only`, to reduce ambiguity?
+- If the target is clone-backed local materialization, what exact threat model and controls are required before enabling `--write-cache`?
+- What minimum writer behavior is needed: `--source` / `--all`, HTTPS GitHub allowlist, safe refs, resolved commit recording, no hooks, no submodules, no package installs, no repo script execution, symlink rejection, scoped file limits, atomic writes, rollback/cleanup, and cache provenance?
+- Should future write-cache artifacts use separate schema versions rather than weakening the current dry-run schema where clone/fetch must be false?
+- If graphify is part of the target for every registered repo, should all four sources have explicit graph scope, graph artifact paths, graph refresh policy, and graph validation rules instead of only `promptfoo-promptfoo` having `graph.enabled: true`?
+- What tests and validators are required before trusting local cache or graph artifacts: fixture git repos, malicious URLs, unsafe refs, path traversal, symlink escapes, oversized repos, graph scope escape, stale manifest refresh, interrupted writes, and `--require-local-cache` checks?
+
+Return:
+
+- whether the current staged behavior is accurately described;
+- whether the clone-backed / graph-backed target is sufficiently specified;
+- blocking design changes before implementing `--write-cache`;
+- recommended implementation sequence for clone, manifest, route index, and graph support.
+
 ## Output Format
 
 Use this structure:

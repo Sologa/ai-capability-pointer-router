@@ -4,6 +4,8 @@ materialization 是明確升級步驟，不是預設行為。長期目標是用 
 
 **Current staged status:** 本 draft 目前只提供 dry-run planner。`scripts/materialize_repo_pointer.py --dry-run` 只輸出計劃；non-dry-run / `--write-cache` 目前明確拒絕執行。真正 clone/fetch/index/write cache 必須另行實作與審查。
 
+Registry 中每個 source 的 `implementation_status` 必須是 `dry_run_only`。只要這個值存在，`materialize_on_first_use` / `materialize_and_graph_on_first_use` 都只能解讀為 declarative future mode，不代表已經能 clone、fetch、checkout、write cache 或 graphify。
+
 ## Mode
 
 - `pointer_only`: 只保存 source card，不下載 repo。
@@ -17,6 +19,7 @@ materialization 是明確升級步驟，不是預設行為。長期目標是用 
 
 - `mode`
 - `repo_url`
+- `implementation_status`
 - `default_ref`
 - `allowed_refs`
 - `pin_policy`

@@ -11,6 +11,7 @@
     "category",
     "repo_url",
     "mode",
+    "implementation_status",
     "default_ref",
     "allowed_refs",
     "pin_policy",
@@ -50,6 +51,9 @@
         "materialize_and_graph_on_first_use",
         "manual_only"
       ]
+    },
+    "implementation_status": {
+      "const": "dry_run_only"
     },
     "default_ref": {
       "const": "main"

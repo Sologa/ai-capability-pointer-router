@@ -9,5 +9,6 @@
 - Added Apache-2.0 licensing.
 - Added schema enforcement for the registry and dry-run plans, plus contract-only schemas for future materialization, route-index, and graph artifacts.
 - Hardened write-cache rejection so `--dry-run --write-cache` cannot succeed.
+- Added structured router/source-card metadata checks, explicit `implementation_status: dry_run_only`, and design docs for future graph scope and materialization writer work.
 
 This remains a staged draft: it is not runtime-installed by default, and clone/fetch/index/write-cache behavior is still intentionally unimplemented.

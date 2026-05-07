@@ -1,6 +1,17 @@
 ---
 source_id: promptfoo-promptfoo
 category: eval_benchmark
+repo: https://github.com/promptfoo/promptfoo
+repo_url: https://github.com/promptfoo/promptfoo.git
+authority_level: eval_redteam_framework
+refresh_sensitivity: very_high
+stale_after_hours: 24
+materialization_mode: materialize_and_graph_on_first_use
+implementation_status: dry_run_only
+graph_enabled: true
+do_not_use_for:
+  - production_observability_without_trace_system
+  - unversioned_model_comparison_claims
 ---
 
 # Source Card: `promptfoo/promptfoo`
@@ -59,6 +70,6 @@ category: eval_benchmark
 
 ## Materialization
 
-使用 `materialize_and_graph_on_first_use`。目前這只是 locator plan，不是已實作的 clone/fetch/graph action。graph scope 僅限 `site/docs`、`examples`、`plugins/promptfoo/skills`，且 graph 仍是 locator only。
+使用 `materialize_and_graph_on_first_use`。這是 declarative only；current implementation 只做 dry-run planning，不 clone、fetch、checkout、write cache 或 graphify。graph scope 僅限 `site/docs`、`examples`、`plugins/promptfoo/skills`，且 graph 仍是 locator only。
 
 Manifest locator: `temp_artifact/repo_pointer_router_cache/repos/promptfoo-promptfoo/materialization.json`

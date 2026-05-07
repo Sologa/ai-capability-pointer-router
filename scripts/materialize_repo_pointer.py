@@ -140,6 +140,8 @@ def validate_source(registry: dict, source_id: str) -> dict:
     mode = materialization.get("mode")
     if mode not in ALLOWED_MODES:
         raise ValueError(f"{source_id}: invalid materialization.mode '{mode}'")
+    if materialization.get("implementation_status") != "dry_run_only":
+        raise ValueError(f"{source_id}: implementation_status must be dry_run_only")
     if materialization.get("pin_policy") not in ALLOWED_PIN_POLICIES:
         raise ValueError(f"{source_id}: invalid pin_policy")
     if materialization.get("update_policy") not in ALLOWED_UPDATE_POLICIES:
@@ -211,6 +213,7 @@ def build_plan(registry_path: Path, registry: dict, source_id: str) -> dict:
         "category": source.get("category"),
         "repo_url": materialization.get("repo_url") or source.get("repo_url"),
         "mode": materialization.get("mode"),
+        "implementation_status": materialization.get("implementation_status"),
         "default_ref": materialization.get("default_ref"),
         "allowed_refs": materialization.get("allowed_refs", []),
         "pin_policy": materialization.get("pin_policy"),

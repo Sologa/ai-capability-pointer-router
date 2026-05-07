@@ -1,3 +1,9 @@
+---
+route_id: eval_benchmark
+sources:
+  - promptfoo-promptfoo
+---
+
 # Category Router: `eval_benchmark`
 
 本 router 只處理 evaluation、benchmark、redteam、provider setup、CI regression 的 source 選路。現階段只有一個 primary source：`promptfoo-promptfoo`。

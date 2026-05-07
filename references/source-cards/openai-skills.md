@@ -1,6 +1,17 @@
 ---
 source_id: openai-skills
 category: skill_building
+repo: https://github.com/openai/skills
+repo_url: https://github.com/openai/skills.git
+authority_level: official_codex_skill_catalog
+refresh_sensitivity: high
+stale_after_hours: 48
+materialization_mode: materialize_on_first_use
+implementation_status: dry_run_only
+graph_enabled: false
+do_not_use_for:
+  - sole_current_openai_product_authority
+  - general_cross_agent_installer
 ---
 
 # Source Card: `openai/skills`
@@ -52,6 +63,6 @@ category: skill_building
 
 ## Materialization
 
-使用 `materialize_on_first_use`。graph 關閉。需要 current example path、官方 skill pattern 或多檔比較時才 materialize。
+使用 `materialize_on_first_use`。這是 declarative only；current implementation 只做 dry-run planning，不 clone、fetch、checkout 或 write cache。graph 關閉。需要 current example path、官方 skill pattern 或多檔比較時才 materialize。
 
 Manifest locator: `temp_artifact/repo_pointer_router_cache/repos/openai-skills/materialization.json`

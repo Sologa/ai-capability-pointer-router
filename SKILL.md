@@ -18,6 +18,8 @@ description: Use when a user asks which AI capability repository to consult for 
 
 預設只讀本檔、被選中的 category router、被選中的 source card。不要因為 source card 指到 repo 就直接 materialize 或深讀 worktree。
 
+目前沒有 clone/fetch/write-cache implementation，也沒有已產生的 graph output；materialization mode 只是 declarative dry-run plan。
+
 ## Category
 
 `references/route-registry.yaml` 是 category source of truth。下面只列目前已有 route：
@@ -25,4 +27,4 @@ description: Use when a user asks which AI capability repository to consult for 
 - `skill_building`: agent skill spec、Codex skill 寫法、cross-agent skill discovery / install / packaging。
 - `eval_benchmark`: LLM eval、benchmark、redteam、provider setup、CI regression。
 
-詳細規則放在 `references/route-registry.yaml`、`references/runtime-protocol.md`、`references/evidence-rules.md`。
+詳細規則放在 `references/route-registry.yaml`、`references/runtime-protocol.md`、`references/evidence-rules.md`、`references/graph-scope-policy.md`、`references/materialization-writer-design.md`。

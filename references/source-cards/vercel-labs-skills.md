@@ -1,6 +1,17 @@
 ---
 source_id: vercel-labs-skills
 category: skill_building
+repo: https://github.com/vercel-labs/skills
+repo_url: https://github.com/vercel-labs/skills.git
+authority_level: cross_agent_skill_cli
+refresh_sensitivity: high
+stale_after_hours: 48
+materialization_mode: materialize_on_first_use
+implementation_status: dry_run_only
+graph_enabled: false
+do_not_use_for:
+  - skill_spec_authority
+  - benchmark_framework
 ---
 
 # Source Card: `vercel-labs/skills`
@@ -59,6 +70,6 @@ category: skill_building
 
 ## Materialization
 
-使用 `materialize_on_first_use`。graph 關閉。需要 CLI/source parsing/lock/update 行為時才 materialize。
+使用 `materialize_on_first_use`。這是 declarative only；current implementation 只做 dry-run planning，不 clone、fetch、checkout 或 write cache。graph 關閉。需要 CLI/source parsing/lock/update 行為時才 materialize。
 
 Manifest locator: `temp_artifact/repo_pointer_router_cache/repos/vercel-labs-skills/materialization.json`

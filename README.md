@@ -35,6 +35,11 @@ The registry source of truth is `references/route-registry.yaml`.
 
 The Python validator is still the authoritative local check for cross-file closure and safety invariants. It also applies the registry and dry-run plan schemas as a second validation layer. The graph/index schemas are contract-only documents for future reviewed tooling; they do not mean graph artifacts are currently generated or published.
 
+Design boundary references:
+
+- `references/graph-scope-policy.md` explains current graph scope limits and why no graph output exists.
+- `references/materialization-writer-design.md` defines the minimum review contract before any future clone/fetch/checkout/write-cache implementation.
+
 ## Validate
 
 ```sh
@@ -59,6 +64,7 @@ python scripts/materialize_repo_pointer.py \
 
 `--write-cache` is intentionally rejected until clone/fetch/index/write-cache behavior has a separate reviewed implementation.
 The combined `--dry-run --write-cache` form is also rejected; any write-cache request is outside this staged draft.
+Registry materialization modes are declarative only while `implementation_status: dry_run_only` is set.
 
 ## Optional Upstream Anchor Check
 
@@ -74,18 +80,20 @@ This command performs network reads against GitHub raw URLs and, in JSON mode, a
 
 1. Add a route to `references/route-registry.yaml`.
 2. Add `references/category-routers/<route_id>.md`.
-3. Add at least one source under that route.
-4. Update `SKILL.md` category bullets.
-5. Run the validator and tests.
+3. Add router frontmatter with `route_id` and `sources` matching the registry route exactly.
+4. Add at least one source under that route.
+5. Update `SKILL.md` category bullets.
+6. Run the validator and tests.
 
 ## Add a Source
 
 1. Add the source under `sources` in `references/route-registry.yaml`.
 2. Add it to exactly one route's `sources` list.
 3. Add `references/source-cards/<source_id>.md`.
-4. Keep all route-index keys namespaced as `<source_id>/<local_route>`.
-5. Use exact raw-file anchors when possible; if a docs route has no single raw file, point to the concrete leaf pages actually needed.
-6. Run dry-run materialization for the new source and then run the validator and tests.
+4. Add source-card frontmatter for identity, freshness, materialization mode, implementation status, graph flag, and `do_not_use_for`; it must mirror the registry.
+5. Keep all route-index keys namespaced as `<source_id>/<local_route>`.
+6. Use exact raw-file anchors when possible; if a docs route has no single raw file, point to the concrete leaf pages actually needed.
+7. Run dry-run materialization for the new source and then run the validator and tests.
 
 ## Publication Boundaries
 

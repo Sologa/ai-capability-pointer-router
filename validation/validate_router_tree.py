@@ -95,6 +95,7 @@ REQUIRED_PUBLIC_HEALTH_FILES = [
 REQUIRED_MATERIALIZATION_FIELDS = {
     "mode",
     "strategy",
+    "implementation_status",
     "repo_url",
     "default_ref",
     "allowed_refs",
@@ -104,6 +105,19 @@ REQUIRED_MATERIALIZATION_FIELDS = {
     "graph",
     "max_files",
     "max_bytes",
+}
+REQUIRED_SOURCE_CARD_FRONTMATTER_FIELDS = {
+    "source_id",
+    "category",
+    "repo",
+    "repo_url",
+    "authority_level",
+    "refresh_sensitivity",
+    "stale_after_hours",
+    "materialization_mode",
+    "implementation_status",
+    "graph_enabled",
+    "do_not_use_for",
 }
 
 
@@ -207,7 +221,16 @@ def validate_routes(root: Path, registry: dict, errors: list[str]) -> None:
 
 
 def validate_category_router_boundary(root: Path, route_id: str, router_doc: str, registry: dict, errors: list[str]) -> None:
+    route = registry.get("routes", {}).get(route_id, {}) if isinstance(registry.get("routes"), dict) else {}
     text = (root / router_doc).read_text(encoding="utf-8")
+    frontmatter = read_frontmatter(root / router_doc)
+    require(frontmatter.get("route_id") == route_id, f"{route_id}: router frontmatter route_id mismatch", errors)
+    expected_sources = route.get("sources") if isinstance(route, dict) else None
+    require(
+        isinstance(frontmatter.get("sources"), list) and frontmatter.get("sources") == expected_sources,
+        f"{route_id}: router frontmatter sources must match registry route sources exactly",
+        errors,
+    )
     sources = registry.get("sources") if isinstance(registry.get("sources"), dict) else {}
     route_index_keys: list[str] = []
     for source in sources.values():
@@ -218,6 +241,18 @@ def validate_category_router_boundary(root: Path, route_id: str, router_doc: str
         require(key not in text, f"{route_id}: category router must not list third-layer route index key {key}", errors)
     require("## Route Index" not in text, f"{route_id}: category router must not contain a Route Index section", errors)
     require("scoped files" not in text, f"{route_id}: category router must not instruct direct scoped file reads", errors)
+
+    if isinstance(expected_sources, list):
+        for source_id in expected_sources:
+            source = sources.get(source_id)
+            if not isinstance(source, dict):
+                continue
+            for anchor in source_anchor_paths(source):
+                require(
+                    anchor not in text,
+                    f"{route_id}: category router must not contain raw source anchor path {anchor}",
+                    errors,
+                )
 
 
 def validate_repo_url(source_id: str, repo_url: object, registry: dict, field: str, errors: list[str]) -> None:
@@ -332,6 +367,11 @@ def validate_materialization(source_id: str, source: dict, registry: dict, mater
 
     mode = materialization.get("mode")
     require(mode in ALLOWED_MODES, f"{source_id}: invalid materialization.mode {mode}", errors)
+    require(
+        materialization.get("implementation_status") == "dry_run_only",
+        f"{source_id}: implementation_status must be dry_run_only",
+        errors,
+    )
     require(materialization.get("pin_policy") in ALLOWED_PIN_POLICIES, f"{source_id}: invalid pin_policy", errors)
     require(materialization.get("update_policy") in ALLOWED_UPDATE_POLICIES, f"{source_id}: invalid update_policy", errors)
     require(materialization.get("default_ref") == "main", f"{source_id}: default_ref must be main in staged draft", errors)
@@ -426,7 +466,11 @@ def validate_sources(root: Path, registry: dict, errors: list[str]) -> None:
     if not isinstance(routes, dict) or not isinstance(sources, dict):
         return
 
-    listed_sources = {source_id for route in routes.values() for source_id in (route.get("sources") or [])}
+    source_route_counts: dict[str, int] = {}
+    for route in routes.values():
+        for listed_source_id in route.get("sources") or []:
+            source_route_counts[listed_source_id] = source_route_counts.get(listed_source_id, 0) + 1
+    listed_sources = set(source_route_counts)
     source_card_paths: set[str] = set()
     expected_card_basenames: set[str] = set()
 
@@ -436,6 +480,7 @@ def validate_sources(root: Path, registry: dict, errors: list[str]) -> None:
         require(not missing, f"{source_id}: missing source fields: {', '.join(missing)}", errors)
         require(source.get("source_id") == source_id, f"{source_id}: source_id must match mapping key", errors)
         require(source_id in listed_sources, f"{source_id}: source is not listed by any route", errors)
+        require(source_route_counts.get(source_id, 0) == 1, f"{source_id}: source must be listed by exactly one route", errors)
 
         category = source.get("category")
         require(category in routes, f"{source_id}: category does not exist: {category}", errors)
@@ -452,6 +497,7 @@ def validate_sources(root: Path, registry: dict, errors: list[str]) -> None:
                 frontmatter = read_frontmatter(full_card_path)
                 require(frontmatter.get("source_id") == source_id, f"{source_id}: card frontmatter source_id mismatch", errors)
                 require(frontmatter.get("category") == category, f"{source_id}: card frontmatter category mismatch", errors)
+                validate_source_card_frontmatter(source_id, frontmatter, source, errors)
                 validate_source_card_content(source_id, full_card_path, source, errors)
 
         read_first = source.get("read_first")
@@ -481,6 +527,8 @@ def validate_root_files(root: Path, errors: list[str]) -> None:
         "references/runtime-protocol.md",
         "references/evidence-rules.md",
         "references/materialization-pipeline.md",
+        "references/graph-scope-policy.md",
+        "references/materialization-writer-design.md",
         "scripts/materialize_repo_pointer.py",
         "validation/validate_router_tree.py",
         "validation/qa_prompts.md",
@@ -578,6 +626,31 @@ def validate_source_card_content(source_id: str, card_path: Path, source: dict, 
             if isinstance(anchors, list):
                 for anchor in anchors:
                     require(anchor in text, f"{source_id}: source card missing route_index anchor {key} -> {anchor}", errors)
+
+
+def validate_source_card_frontmatter(source_id: str, frontmatter: dict, source: dict, errors: list[str]) -> None:
+    missing = sorted(REQUIRED_SOURCE_CARD_FRONTMATTER_FIELDS - set(frontmatter))
+    require(not missing, f"{source_id}: source card frontmatter missing fields: {', '.join(missing)}", errors)
+
+    materialization = source.get("materialization") if isinstance(source.get("materialization"), dict) else {}
+    graph = materialization.get("graph") if isinstance(materialization.get("graph"), dict) else {}
+    expected = {
+        "repo": source.get("repo"),
+        "repo_url": source.get("repo_url"),
+        "authority_level": source.get("authority_level"),
+        "refresh_sensitivity": source.get("refresh_sensitivity"),
+        "stale_after_hours": source.get("stale_after_hours"),
+        "materialization_mode": materialization.get("mode"),
+        "implementation_status": materialization.get("implementation_status"),
+        "graph_enabled": graph.get("enabled"),
+        "do_not_use_for": source.get("do_not_use_for"),
+    }
+    for field, expected_value in expected.items():
+        require(
+            frontmatter.get(field) == expected_value,
+            f"{source_id}: source card frontmatter {field} must match registry",
+            errors,
+        )
 
 
 def validate_dry_run(root: Path, registry_path: Path, registry: dict, errors: list[str]) -> None:

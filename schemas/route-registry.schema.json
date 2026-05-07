@@ -403,6 +403,7 @@
       "required": [
         "mode",
         "strategy",
+        "implementation_status",
         "repo_url",
         "default_ref",
         "allowed_refs",
@@ -424,6 +425,9 @@
         },
         "strategy": {
           "const": "git_clone_fetch_checkout"
+        },
+        "implementation_status": {
+          "const": "dry_run_only"
         },
         "repo_url": {
           "$ref": "#/$defs/repo_clone_url"

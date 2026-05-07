@@ -90,6 +90,7 @@ sources:
     materialization:
       mode: "materialize_on_first_use"
       strategy: "git_clone_fetch_checkout"
+      implementation_status: "dry_run_only"
       repo_url: "https://github.com/agentskills/agentskills.git"
       default_ref: "main"
       allowed_refs: ["main", "tags", "commit_sha"]
@@ -147,6 +148,7 @@ sources:
     materialization:
       mode: "materialize_on_first_use"
       strategy: "git_clone_fetch_checkout"
+      implementation_status: "dry_run_only"
       repo_url: "https://github.com/openai/skills.git"
       default_ref: "main"
       allowed_refs: ["main", "tags", "commit_sha"]
@@ -209,6 +211,7 @@ sources:
     materialization:
       mode: "materialize_on_first_use"
       strategy: "git_clone_fetch_checkout"
+      implementation_status: "dry_run_only"
       repo_url: "https://github.com/vercel-labs/skills.git"
       default_ref: "main"
       allowed_refs: ["main", "tags", "commit_sha"]
@@ -281,6 +284,7 @@ sources:
     materialization:
       mode: "materialize_and_graph_on_first_use"
       strategy: "git_clone_fetch_checkout"
+      implementation_status: "dry_run_only"
       repo_url: "https://github.com/promptfoo/promptfoo.git"
       default_ref: "main"
       allowed_refs: ["main", "tags", "commit_sha"]

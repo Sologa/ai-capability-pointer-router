@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 import yaml
@@ -112,6 +113,61 @@ class RouterTreeValidationTests(unittest.TestCase):
             proc = self.run_validator(root)
             self.assertEqual(proc.returncode, 0, proc.stderr)
 
+    def test_router_frontmatter_source_drift_fails(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            router = root / "references/category-routers/skill_building.md"
+            router.write_text(
+                router.read_text(encoding="utf-8").replace("  - openai-skills\n", ""),
+                encoding="utf-8",
+            )
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("router frontmatter sources must match registry", proc.stderr)
+
+    def test_category_router_raw_anchor_leakage_fails(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            router = root / "references/category-routers/skill_building.md"
+            router.write_text(
+                router.read_text(encoding="utf-8") + "\nDirect raw path leak: `docs/specification.mdx`.\n",
+                encoding="utf-8",
+            )
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("category router must not contain raw source anchor path", proc.stderr)
+
+    def test_source_card_frontmatter_identity_drift_fails(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            card = root / "references/source-cards/promptfoo-promptfoo.md"
+            card.write_text(
+                card.read_text(encoding="utf-8").replace(
+                    "authority_level: eval_redteam_framework",
+                    "authority_level: generic_eval_tool",
+                ),
+                encoding="utf-8",
+            )
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("source card frontmatter authority_level must match registry", proc.stderr)
+
+    def test_source_card_frontmatter_source_id_mismatch_fails(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            card = root / "references/source-cards/promptfoo-promptfoo.md"
+            card.write_text(
+                card.read_text(encoding="utf-8").replace(
+                    "source_id: promptfoo-promptfoo",
+                    "source_id: promptfoo-other",
+                    1,
+                ),
+                encoding="utf-8",
+            )
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("card frontmatter source_id mismatch", proc.stderr)
+
     def test_extra_source_card_route_key_fails(self) -> None:
         with copy_repo() as temp:
             root = Path(temp) / "skill"
@@ -171,6 +227,18 @@ class RouterTreeValidationTests(unittest.TestCase):
             proc = self.run_validator(root)
             self.assertNotEqual(proc.returncode, 0)
             self.assertIn("graph.scope.include[0] must not contain '..'", proc.stderr)
+
+    def test_unsafe_graph_scope_exclude_fails(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            registry["sources"]["promptfoo-promptfoo"]["materialization"]["graph"]["scope"]["exclude"].append(
+                "../secrets"
+            )
+            write_registry(root, registry)
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("graph.scope.exclude", proc.stderr)
 
     def test_generated_dirs_are_skipped_by_validator(self) -> None:
         with copy_repo() as temp:
@@ -264,6 +332,37 @@ class RouterTreeValidationTests(unittest.TestCase):
             self.assertNotEqual(proc.returncode, 0)
             self.assertIn("required file missing: schemas/route-registry.schema.json", proc.stderr)
 
+    def test_registry_schema_violation_fails(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            registry["sources"]["promptfoo-promptfoo"]["unexpected_field"] = True
+            write_registry(root, registry)
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("schema violation", proc.stderr)
+
+    def test_route_index_wrong_source_prefix_fails(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            route_index = registry["sources"]["promptfoo-promptfoo"]["route_index"]
+            route_index["openai-skills/eval_basics"] = route_index.pop("promptfoo-promptfoo/eval_basics")
+            write_registry(root, registry)
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("route_index key must start", proc.stderr)
+
+    def test_source_listed_by_multiple_routes_fails(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            registry["routes"]["skill_building"]["sources"].append("promptfoo-promptfoo")
+            write_registry(root, registry)
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("source must be listed by exactly one route", proc.stderr)
+
     def test_materializer_rejects_write_cache_even_with_dry_run(self) -> None:
         with copy_repo() as temp:
             root = Path(temp) / "skill"
@@ -288,6 +387,18 @@ class RouterTreeValidationTests(unittest.TestCase):
             proc = self.run_materializer(root, "promptfoo-promptfoo")
             self.assertNotEqual(proc.returncode, 0)
             self.assertIn("graph.mode must be locator_only", proc.stderr)
+
+    def test_materializer_rejects_non_dry_run_implementation_status(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            registry["sources"]["promptfoo-promptfoo"]["materialization"][
+                "implementation_status"
+            ] = "write_cache_enabled"
+            write_registry(root, registry)
+            proc = self.run_materializer(root, "promptfoo-promptfoo")
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("implementation_status must be dry_run_only", proc.stderr)
 
     def test_materializer_rejects_non_positive_materialization_limits(self) -> None:
         with copy_repo() as temp:
@@ -412,6 +523,80 @@ class RouterTreeValidationTests(unittest.TestCase):
             module.raw_url("owner", "repo", "feature/ref", "docs/a file.md"),
             "https://raw.githubusercontent.com/owner/repo/feature%2Fref/docs/a%20file.md",
         )
+
+    def test_upstream_checker_404_reports_missing(self) -> None:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("check_upstream_anchors", UPSTREAM_CHECKER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+
+        def raise_404(*_args, **_kwargs):
+            raise module.HTTPError("url", 404, "Not Found", {}, None)
+
+        with mock.patch.object(module, "urlopen", side_effect=raise_404):
+            exists, error = module.anchor_exists("https://example.test/missing", 0.01)
+        self.assertFalse(exists)
+        self.assertIn("404", error or "")
+
+    def test_upstream_checker_405_falls_back_to_get(self) -> None:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("check_upstream_anchors", UPSTREAM_CHECKER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+
+        class Response:
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return None
+
+        calls = []
+
+        def fake_urlopen(request, timeout=0):
+            calls.append(request)
+            if len(calls) == 1:
+                raise module.HTTPError("url", 405, "Method Not Allowed", {}, None)
+            return Response()
+
+        with mock.patch.object(module, "urlopen", side_effect=fake_urlopen):
+            exists, error = module.anchor_exists("https://example.test/file", 0.01)
+        self.assertTrue(exists)
+        self.assertIsNone(error)
+        self.assertEqual(len(calls), 2)
+
+    def test_upstream_checker_metadata_error_does_not_fail_existing_anchor(self) -> None:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("check_upstream_anchors", UPSTREAM_CHECKER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+
+        registry = {
+            "sources": {
+                "promptfoo-promptfoo": {
+                    "repo_url": "https://github.com/promptfoo/promptfoo.git",
+                    "read_first": ["README.md"],
+                }
+            }
+        }
+        with mock.patch.object(module, "resolve_commit", return_value=(None, "rate limited")), mock.patch.object(
+            module, "anchor_exists", return_value=(True, None)
+        ), mock.patch.object(module, "resolve_blob_sha", return_value=("b" * 40, None)):
+            results, missing = module.check_registry(registry, "main", 0.01)
+        self.assertEqual(missing, 0)
+        self.assertTrue(results[0]["exists"])
+        self.assertEqual(results[0]["metadata_error"], "rate limited")
 
 
 if __name__ == "__main__":

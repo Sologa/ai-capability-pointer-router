@@ -1,3 +1,11 @@
+---
+route_id: skill_building
+sources:
+  - agentskills-agentskills
+  - openai-skills
+  - vercel-labs-skills
+---
+
 # Category Router: `skill_building`
 
 本 router 只做第二層選路，不直接回答 repo 事實。選到 source 後，先讀 source card；只有問題明確需要 repo behavior、API、CLI、current facts 或 cross-file evidence，才 materialize 或開 raw repo file。
