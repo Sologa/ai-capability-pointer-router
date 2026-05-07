@@ -1,0 +1,12 @@
+._*
+.DS_Store
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.omx/
+.codex/
+cache/
+temp_artifact/
+graphify-out/

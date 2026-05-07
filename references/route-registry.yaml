@@ -1,0 +1,276 @@
+version: "0.1"
+created: "2026-05-07"
+status: "staged_draft"
+purpose: >
+  Thin pointer-of-pointers registry for AI capability repos. This registry,
+  source cards, route indexes, and graph artifacts are locators only, not
+  factual evidence.
+
+tree_depth_invariant:
+  root: "SKILL.md 只能選 category。"
+  category_router: "category router 只能選 source card 或 materialization decision。"
+  source_card: "source card 只能選 anchor、manifest 或 index。"
+  raw_file_rule: "只有最後一步才開 raw repo file。"
+
+route_index_key_rule: "<source_id>/<local_route>"
+
+materialization_defaults:
+  cache_root: "temp_artifact/repo_pointer_router_cache"
+  script: "scripts/materialize_repo_pointer.py"
+  host_allowlist:
+    - "github.com"
+  allowed_modes:
+    - "pointer_only"
+    - "materialize_on_first_use"
+    - "materialize_and_graph_on_first_use"
+    - "manual_only"
+  default_ref: "main"
+  allowed_refs:
+    - "main"
+    - "tags"
+    - "commit_sha"
+  pin_policy: "record_resolved_commit"
+  update_policy: "fetch_latest_on_explicit_use"
+  graph_semantics: "locator_only"
+  manifest_index: "temp_artifact/repo_pointer_router_cache/indexes/repo-materialization-index.jsonl"
+  stale_after_hours_by_sensitivity:
+    low: 720
+    medium: 168
+    high: 48
+    very_high: 24
+  safety:
+    run_repo_code: false
+    run_package_install: false
+    run_repo_hooks: false
+    follow_external_symlinks: false
+    require_scope_for_graph: true
+
+routes:
+  skill_building:
+    route_id: "skill_building"
+    router_doc: "references/category-routers/skill_building.md"
+    description: "Agent Skills specs, Codex skill creation, cross-agent skill discovery, installation, and packaging."
+    sources:
+      - "agentskills-agentskills"
+      - "openai-skills"
+      - "vercel-labs-skills"
+    default_read_strategy: "source_card_then_anchor_files"
+    materialization_decision: "只有問題明確需要 repo behavior、API、CLI、current facts 或 cross-file evidence 才 materialize。"
+
+  eval_benchmark:
+    route_id: "eval_benchmark"
+    router_doc: "references/category-routers/eval_benchmark.md"
+    description: "LLM evaluation, prompt/model/agent benchmarking, regression checks, redteam setup, and skill behavior validation."
+    sources:
+      - "promptfoo-promptfoo"
+    default_read_strategy: "source_card_then_route_index"
+    materialization_decision: "Promptfoo 問題常需要 scoped route index；current behavior 必須 refresh 或使用 pinned manifest。"
+
+sources:
+  agentskills-agentskills:
+    source_id: "agentskills-agentskills"
+    repo: "https://github.com/agentskills/agentskills"
+    repo_url: "https://github.com/agentskills/agentskills.git"
+    category: "skill_building"
+    source_card_path: "references/source-cards/agentskills-agentskills.md"
+    authority_level: "canonical_spec_anchor"
+    refresh_sensitivity: "high"
+    stale_after_hours: 48
+    representation: "materialized_source_card_plus_on_demand_pointer"
+    materialization:
+      mode: "materialize_on_first_use"
+      strategy: "git_clone_fetch_checkout"
+      repo_url: "https://github.com/agentskills/agentskills.git"
+      default_ref: "main"
+      allowed_refs: ["main", "tags", "commit_sha"]
+      pin_policy: "record_resolved_commit"
+      update_policy: "fetch_latest_on_explicit_use"
+      manifest:
+        path: "temp_artifact/repo_pointer_router_cache/repos/agentskills-agentskills/materialization.json"
+      graph:
+        enabled: false
+        mode: "locator_only"
+        scope:
+          include: []
+          exclude: []
+      max_files: 120
+      max_bytes: 2000000
+    read_first:
+      - "README.md"
+      - "docs/specification.mdx"
+      - "docs/client-implementation/adding-skills-support.mdx"
+      - "docs/skill-creation/best-practices.mdx"
+      - "skills-ref/README.md"
+    route_index:
+      agentskills-agentskills/spec_contract:
+        - "README.md"
+        - "docs/specification.mdx"
+      agentskills-agentskills/client_support:
+        - "docs/client-implementation/adding-skills-support.mdx"
+      agentskills-agentskills/skill_authoring:
+        - "docs/skill-creation/best-practices.mdx"
+        - "skills-ref/README.md"
+    do_not_use_for:
+      - "production_package_manager"
+      - "behavioral_eval_framework"
+
+  openai-skills:
+    source_id: "openai-skills"
+    repo: "https://github.com/openai/skills"
+    repo_url: "https://github.com/openai/skills.git"
+    category: "skill_building"
+    source_card_path: "references/source-cards/openai-skills.md"
+    authority_level: "official_codex_skill_catalog"
+    refresh_sensitivity: "high"
+    stale_after_hours: 48
+    representation: "materialized_source_card_plus_on_demand_pointer"
+    materialization:
+      mode: "materialize_on_first_use"
+      strategy: "git_clone_fetch_checkout"
+      repo_url: "https://github.com/openai/skills.git"
+      default_ref: "main"
+      allowed_refs: ["main", "tags", "commit_sha"]
+      pin_policy: "record_resolved_commit"
+      update_policy: "fetch_latest_on_explicit_use"
+      manifest:
+        path: "temp_artifact/repo_pointer_router_cache/repos/openai-skills/materialization.json"
+      graph:
+        enabled: false
+        mode: "locator_only"
+        scope:
+          include: []
+          exclude: []
+      max_files: 180
+      max_bytes: 2500000
+    read_first:
+      - "README.md"
+      - "skills/.system/skill-creator/SKILL.md"
+      - "skills/.system/skill-installer/SKILL.md"
+      - "skills/.system/skill-creator/references/openai_yaml.md"
+      - "skills/.curated/openai-docs/SKILL.md"
+    route_index:
+      openai-skills/skill_creation:
+        - "README.md"
+        - "skills/.system/skill-creator/SKILL.md"
+      openai-skills/installation:
+        - "skills/.system/skill-installer/SKILL.md"
+      openai-skills/openai_yaml:
+        - "skills/.system/skill-creator/references/openai_yaml.md"
+      openai-skills/openai_docs_skill:
+        - "skills/.curated/openai-docs/SKILL.md"
+    do_not_use_for:
+      - "sole_current_openai_product_authority"
+      - "general_cross_agent_installer"
+
+  vercel-labs-skills:
+    source_id: "vercel-labs-skills"
+    repo: "https://github.com/vercel-labs/skills"
+    repo_url: "https://github.com/vercel-labs/skills.git"
+    category: "skill_building"
+    source_card_path: "references/source-cards/vercel-labs-skills.md"
+    authority_level: "cross_agent_skill_cli"
+    refresh_sensitivity: "high"
+    stale_after_hours: 48
+    representation: "materialized_source_card_plus_on_demand_pointer"
+    materialization:
+      mode: "materialize_on_first_use"
+      strategy: "git_clone_fetch_checkout"
+      repo_url: "https://github.com/vercel-labs/skills.git"
+      default_ref: "main"
+      allowed_refs: ["main", "tags", "commit_sha"]
+      pin_policy: "record_resolved_commit"
+      update_policy: "fetch_latest_on_explicit_use"
+      manifest:
+        path: "temp_artifact/repo_pointer_router_cache/repos/vercel-labs-skills/materialization.json"
+      graph:
+        enabled: false
+        mode: "locator_only"
+        scope:
+          include: []
+          exclude: []
+      max_files: 220
+      max_bytes: 3000000
+    read_first:
+      - "README.md"
+      - "AGENTS.md"
+      - "skills/find-skills/SKILL.md"
+      - "src/source-parser.ts"
+      - "src/skill-lock.ts"
+      - "src/skills.ts"
+    route_index:
+      vercel-labs-skills/discovery_installation:
+        - "README.md"
+        - "skills/find-skills/SKILL.md"
+      vercel-labs-skills/source_parsing:
+        - "src/source-parser.ts"
+      vercel-labs-skills/lock_update:
+        - "src/skill-lock.ts"
+        - "src/skills.ts"
+    do_not_use_for:
+      - "skill_spec_authority"
+      - "benchmark_framework"
+
+  promptfoo-promptfoo:
+    source_id: "promptfoo-promptfoo"
+    repo: "https://github.com/promptfoo/promptfoo"
+    repo_url: "https://github.com/promptfoo/promptfoo.git"
+    category: "eval_benchmark"
+    source_card_path: "references/source-cards/promptfoo-promptfoo.md"
+    authority_level: "eval_redteam_framework"
+    refresh_sensitivity: "very_high"
+    stale_after_hours: 24
+    representation: "materialized_source_card_plus_scoped_graph_index"
+    materialization:
+      mode: "materialize_and_graph_on_first_use"
+      strategy: "git_clone_fetch_checkout"
+      repo_url: "https://github.com/promptfoo/promptfoo.git"
+      default_ref: "main"
+      allowed_refs: ["main", "tags", "commit_sha"]
+      pin_policy: "record_resolved_commit"
+      update_policy: "fetch_latest_on_explicit_use"
+      manifest:
+        path: "temp_artifact/repo_pointer_router_cache/repos/promptfoo-promptfoo/materialization.json"
+      graph:
+        enabled: true
+        mode: "locator_only"
+        rebuild_policy: "if_commit_or_scope_changed"
+        scope:
+          include:
+            - "site/docs"
+            - "examples"
+            - "plugins/promptfoo/skills"
+          exclude:
+            - ".git"
+            - "node_modules"
+            - "graphify-out"
+            - "dist"
+            - "coverage"
+            - "**/.env*"
+            - "**/*secret*"
+      max_files: 1200
+      max_bytes: 25000000
+    read_first:
+      - "README.md"
+      - "plugins/promptfoo/skills/promptfoo-evals/SKILL.md"
+      - "plugins/promptfoo/skills/promptfoo-redteam-setup/SKILL.md"
+      - "plugins/promptfoo/skills/promptfoo-redteam-run/SKILL.md"
+      - "plugins/promptfoo/skills/promptfoo-provider-setup/SKILL.md"
+    route_index:
+      promptfoo-promptfoo/eval_basics:
+        - "site/docs/getting-started"
+        - "site/docs/configuration"
+        - "plugins/promptfoo/skills/promptfoo-evals/SKILL.md"
+      promptfoo-promptfoo/redteam:
+        - "site/docs/red-team"
+        - "plugins/promptfoo/skills/promptfoo-redteam-setup/SKILL.md"
+        - "plugins/promptfoo/skills/promptfoo-redteam-run/SKILL.md"
+      promptfoo-promptfoo/provider_setup:
+        - "plugins/promptfoo/skills/promptfoo-provider-setup/SKILL.md"
+        - "site/docs/providers"
+        - "site/docs/usage/command-line"
+      promptfoo-promptfoo/ci_regression:
+        - "site/docs/integrations"
+        - "site/docs/usage/command-line"
+    do_not_use_for:
+      - "production_observability_without_trace_system"
+      - "unversioned_model_comparison_claims"

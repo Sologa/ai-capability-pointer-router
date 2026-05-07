@@ -1,0 +1,6 @@
+interface:
+  display_name: "AI Capability Pointer Router"
+  short_description: "Routes AI capability repo pointers lazily."
+  default_prompt: "Use $ai-capability-pointer-router to choose the right AI capability repo pointer before reading source files."
+policy:
+  allow_implicit_invocation: false
