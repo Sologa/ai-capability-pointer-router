@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import sys
@@ -13,6 +14,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[1]
 VALIDATOR = REPO_ROOT / "validation" / "validate_router_tree.py"
 MATERIALIZER = REPO_ROOT / "scripts" / "materialize_repo_pointer.py"
+UPSTREAM_CHECKER = REPO_ROOT / "validation" / "check_upstream_anchors.py"
 
 
 def copy_repo() -> tempfile.TemporaryDirectory[str]:
@@ -29,6 +31,11 @@ def copy_repo() -> tempfile.TemporaryDirectory[str]:
             ".pytest_cache",
             ".mypy_cache",
             ".ruff_cache",
+            ".omx",
+            ".codex",
+            "cache",
+            "temp_artifact",
+            "graphify-out",
         ),
     )
     return temp
@@ -74,6 +81,24 @@ class RouterTreeValidationTests(unittest.TestCase):
             check=False,
         )
 
+    def run_materializer_from_cwd(self, root: Path, source: str, cwd: Path) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [
+                sys.executable,
+                str(MATERIALIZER),
+                "--registry",
+                str(root / "references/route-registry.yaml"),
+                "--source",
+                source,
+                "--dry-run",
+                "--offline-ok",
+            ],
+            cwd=cwd,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
     def test_current_tree_is_valid(self) -> None:
         with copy_repo() as temp:
             root = Path(temp) / "skill"
@@ -92,6 +117,31 @@ class RouterTreeValidationTests(unittest.TestCase):
             proc = self.run_validator(root)
             self.assertNotEqual(proc.returncode, 0)
             self.assertIn("route_index keys not in registry", proc.stderr)
+
+    def test_invalid_source_card_route_key_syntax_fails(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            card = root / "references/source-cards/promptfoo-promptfoo.md"
+            card.write_text(
+                card.read_text(encoding="utf-8")
+                + "\n- `promptfoo-promptfoo/bad-route`\n  - `README.md`\n",
+                encoding="utf-8",
+            )
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("invalid route_index key syntax", proc.stderr)
+
+    def test_unbackticked_route_like_text_is_not_treated_as_declared_route_key(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            card = root / "references/source-cards/promptfoo-promptfoo.md"
+            card.write_text(
+                card.read_text(encoding="utf-8")
+                + "\nPlain prose mention: promptfoo-promptfoo/not_a_declared_key.\n",
+                encoding="utf-8",
+            )
+            proc = self.run_validator(root)
+            self.assertEqual(proc.returncode, 0, proc.stderr)
 
     def test_unsafe_default_cache_root_fails(self) -> None:
         with copy_repo() as temp:
@@ -114,6 +164,24 @@ class RouterTreeValidationTests(unittest.TestCase):
             proc = self.run_validator(root)
             self.assertNotEqual(proc.returncode, 0)
             self.assertIn("graph.scope.include[0] must not contain '..'", proc.stderr)
+
+    def test_generated_dirs_are_skipped_by_validator(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            for rel in ("temp_artifact", "graphify-out", "cache", ".codex", ".omx"):
+                generated_dir = root / rel
+                generated_dir.mkdir(parents=True)
+                (generated_dir / "._generated").write_text("sidecar", encoding="utf-8")
+            proc = self.run_validator(root)
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+
+    def test_sidecar_outside_generated_dirs_fails(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            (root / "._bad").write_text("sidecar", encoding="utf-8")
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("macOS sidecar", proc.stderr)
 
     def test_skill_category_drift_fails(self) -> None:
         with copy_repo() as temp:
@@ -139,13 +207,50 @@ class RouterTreeValidationTests(unittest.TestCase):
             proc = self.run_materializer(root, "promptfoo-promptfoo")
             self.assertNotEqual(proc.returncode, 0)
             self.assertIn("scheme must be https", proc.stderr)
+            self.assertNotIn("Traceback", proc.stderr)
 
     def test_materializer_rejects_bad_source_id(self) -> None:
         with copy_repo() as temp:
             root = Path(temp) / "skill"
             proc = self.run_materializer(root, "../promptfoo-promptfoo")
-            self.assertNotEqual(proc.returncode, 0)
+            self.assertEqual(proc.returncode, 1)
+            self.assertTrue(proc.stderr.startswith("ERROR:"), proc.stderr)
             self.assertIn("source id must be lowercase kebab-case", proc.stderr)
+            self.assertNotIn("Traceback", proc.stderr)
+
+    def test_materializer_manifest_exists_is_registry_root_relative(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            manifest = root / "temp_artifact/repo_pointer_router_cache/repos/promptfoo-promptfoo/materialization.json"
+            manifest.parent.mkdir(parents=True)
+            manifest.write_text("{}", encoding="utf-8")
+            proc = self.run_materializer_from_cwd(root, "promptfoo-promptfoo", Path(temp))
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            plan = json.loads(proc.stdout)
+            self.assertTrue(plan["paths"]["manifest_exists"])
+
+    def test_validator_rejects_display_repo_mismatch(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            registry["sources"]["promptfoo-promptfoo"]["repo"] = "https://github.com/openai/skills"
+            write_registry(root, registry)
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("source.repo and source.repo_url must point to the same GitHub repo", proc.stderr)
+
+    def test_upstream_checker_url_encoding_helper(self) -> None:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("check_upstream_anchors", UPSTREAM_CHECKER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        self.assertEqual(
+            module.raw_url("owner", "repo", "feature/ref", "docs/a file.md"),
+            "https://raw.githubusercontent.com/owner/repo/feature%2Fref/docs/a%20file.md",
+        )
 
 
 if __name__ == "__main__":

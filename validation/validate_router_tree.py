@@ -33,9 +33,26 @@ CACHE_PREFIX = f"{CACHE_ROOT}/"
 REQUIRED_GITIGNORE_PATTERNS = {
     "._*",
     "__pycache__/",
+    ".codex/",
+    ".omx/",
+    ".pytest_cache/",
+    ".mypy_cache/",
+    ".ruff_cache/",
     "cache/",
     "temp_artifact/",
     "graphify-out/",
+}
+SKIP_WALK_DIRS = {
+    ".git",
+    ".codex",
+    ".omx",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    "__pycache__",
+    "cache",
+    "temp_artifact",
+    "graphify-out",
 }
 REQUIRED_SOURCE_FIELDS = {
     "source_id",
@@ -161,6 +178,41 @@ def validate_repo_url(source_id: str, repo_url: object, registry: dict, field: s
         require(parsed.hostname in set(allowlist), f"{source_id}: {field} host is not allowlisted: {repo_url}", errors)
 
 
+def github_repo_slug(repo_url: str) -> tuple[str, str] | None:
+    parsed = urlparse(repo_url)
+    path = parsed.path.strip("/")
+    if path.endswith(".git"):
+        path = path[:-4]
+    parts = path.split("/")
+    if len(parts) != 2 or not all(parts):
+        return None
+    return parts[0], parts[1]
+
+
+def validate_display_repo_url(source_id: str, source: dict, registry: dict, errors: list[str]) -> None:
+    repo = source.get("repo")
+    repo_url = source.get("repo_url")
+    materialization = source.get("materialization") if isinstance(source.get("materialization"), dict) else {}
+    materialization_repo_url = materialization.get("repo_url") if isinstance(materialization, dict) else None
+
+    validate_repo_url(source_id, repo, registry, "source.repo", errors)
+    if isinstance(repo, str):
+        require(not repo.endswith(".git"), f"{source_id}: source.repo must be a display URL without .git suffix", errors)
+
+    if isinstance(repo, str) and isinstance(repo_url, str):
+        require(
+            github_repo_slug(repo) == github_repo_slug(repo_url),
+            f"{source_id}: source.repo and source.repo_url must point to the same GitHub repo",
+            errors,
+        )
+    if isinstance(repo, str) and isinstance(materialization_repo_url, str):
+        require(
+            github_repo_slug(repo) == github_repo_slug(materialization_repo_url),
+            f"{source_id}: source.repo and materialization.repo_url must point to the same GitHub repo",
+            errors,
+        )
+
+
 def validate_locator_path(source_id: str, field: str, value: object, errors: list[str]) -> None:
     require(isinstance(value, str) and bool(value), f"{source_id}: {field} must be a non-empty string", errors)
     if not isinstance(value, str) or not value:
@@ -234,6 +286,7 @@ def validate_materialization(source_id: str, source: dict, registry: dict, mater
 
     validate_repo_url(source_id, source.get("repo_url"), registry, "source.repo_url", errors)
     validate_repo_url(source_id, materialization.get("repo_url"), registry, "materialization.repo_url", errors)
+    validate_display_repo_url(source_id, source, registry, errors)
     if isinstance(source.get("repo_url"), str) and isinstance(materialization.get("repo_url"), str):
         require(source.get("repo_url") == materialization.get("repo_url"), f"{source_id}: source.repo_url and materialization.repo_url must match", errors)
 
@@ -251,6 +304,8 @@ def validate_materialization(source_id: str, source: dict, registry: dict, mater
     for key in ("max_files", "max_bytes"):
         value = materialization.get(key)
         require(isinstance(value, int) and value > 0, f"{source_id}: {key} must be positive integer", errors)
+
+
 def validate_route_index(source_id: str, source: dict, errors: list[str]) -> None:
     route_index = source.get("route_index")
     if route_index is None:
@@ -359,7 +414,8 @@ def validate_root_files(root: Path, errors: list[str]) -> None:
             errors.append(f"agents/openai.yaml invalid: {exc}")
 
     for path in root.rglob("*"):
-        if ".git" in path.relative_to(root).parts:
+        rel_parts = path.relative_to(root).parts
+        if any(part in SKIP_WALK_DIRS for part in rel_parts):
             continue
         require(not path.is_symlink(), f"draft skill must not contain symlink: {path.relative_to(root)}", errors)
         require(not path.name.startswith("._"), f"draft skill must not contain macOS sidecar file: {path.relative_to(root)}", errors)
@@ -398,13 +454,13 @@ def validate_source_card_content(source_id: str, card_path: Path, source: dict, 
     route_index = source.get("route_index") or {}
     if isinstance(route_index, dict):
         expected_keys = set(route_index)
-        found_keys = set(
-            re.findall(
-                rf"(?<![A-Za-z0-9_./-]){re.escape(source_id)}/[a-z][a-z0-9_]*(?![A-Za-z0-9_./-])",
-                text,
-            )
+        found_keys = set(re.findall(rf"`({re.escape(source_id)}/[^`\s]+)`", text))
+        invalid_keys = sorted(
+            key for key in found_keys
+            if "/" in key and not LOCAL_ROUTE_RE.match(key.split("/", 1)[1])
         )
-        extra_keys = sorted(found_keys - expected_keys)
+        extra_keys = sorted(key for key in found_keys - expected_keys if key not in invalid_keys)
+        require(not invalid_keys, f"{source_id}: source card contains invalid route_index key syntax: {', '.join(invalid_keys)}", errors)
         require(not extra_keys, f"{source_id}: source card contains route_index keys not in registry: {', '.join(extra_keys)}", errors)
         for key, anchors in route_index.items():
             require(key in text, f"{source_id}: source card missing route_index key {key}", errors)

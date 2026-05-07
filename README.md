@@ -29,11 +29,7 @@ python validation/validate_router_tree.py .
 python -m unittest discover -s tests
 ```
 
-For Codex skill-shape validation:
-
-```sh
-python /Users/xjp/.codex/skills/.system/skill-creator/scripts/quick_validate.py .
-```
+Optional: run your local Codex or Agent Skills shape validator if it is installed. The portable validator for this repo is `python validation/validate_router_tree.py .`.
 
 ## Dry-Run Materialization Planner
 
@@ -48,6 +44,16 @@ python scripts/materialize_repo_pointer.py \
 ```
 
 `--write-cache` is intentionally rejected until clone/fetch/index/write-cache behavior has a separate reviewed implementation.
+
+## Optional Upstream Anchor Check
+
+The default validator is offline. To check whether `read_first` and route-index file anchors exist on the upstream GitHub repos:
+
+```sh
+python validation/check_upstream_anchors.py references/route-registry.yaml --ref main
+```
+
+This command performs network reads against GitHub raw URLs and should be treated as review-time evidence, not as a replacement for reading raw source files before making factual claims.
 
 ## Add a Category
 

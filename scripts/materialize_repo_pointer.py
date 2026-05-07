@@ -103,6 +103,24 @@ def validate_repo_url(source_id: str, repo_url: str, registry: dict) -> None:
         raise ValueError(f"{source_id}: repo host '{parsed.hostname}' is not allowlisted")
 
 
+def github_repo_slug(repo_url: str) -> tuple[str, str]:
+    parsed = urlparse(repo_url)
+    path = parsed.path.strip("/")
+    if path.endswith(".git"):
+        path = path[:-4]
+    parts = path.split("/")
+    if len(parts) != 2 or not all(parts):
+        raise ValueError(f"repo URL must identify exactly owner/repo: {repo_url}")
+    return parts[0], parts[1]
+
+
+def infer_skill_root(registry_path: Path) -> Path:
+    resolved = registry_path.resolve()
+    if resolved.name == "route-registry.yaml" and resolved.parent.name == "references":
+        return resolved.parent.parent
+    return resolved.parent
+
+
 def validate_source(registry: dict, source_id: str) -> dict:
     validate_source_id(source_id)
     sources = registry.get("sources")
@@ -127,6 +145,14 @@ def validate_source(registry: dict, source_id: str) -> dict:
     if isinstance(source_repo_url, str) and source_repo_url and source_repo_url != repo_url:
         raise ValueError(f"{source_id}: source.repo_url and materialization.repo_url must match")
     validate_repo_url(source_id, repo_url, registry)
+    display_repo = source.get("repo")
+    if not isinstance(display_repo, str) or not display_repo:
+        raise ValueError(f"{source_id}: source.repo must be a non-empty string")
+    validate_repo_url(source_id, display_repo, registry)
+    if display_repo.endswith(".git"):
+        raise ValueError(f"{source_id}: source.repo must be a display URL without .git suffix")
+    if github_repo_slug(display_repo) != github_repo_slug(repo_url):
+        raise ValueError(f"{source_id}: source.repo and repo_url must point to the same GitHub repo")
 
     allowed_refs = materialization.get("allowed_refs")
     if not isinstance(allowed_refs, list) or not all(item in ALLOWED_REF_VALUES for item in allowed_refs):
@@ -158,6 +184,8 @@ def build_plan(registry_path: Path, registry: dict, source_id: str) -> dict:
     repo_dir = f"{cache_root}/repos/{source_id}"
     graph = materialization.get("graph", {})
     manifest_path = materialization.get("manifest", {}).get("path")
+    skill_root = infer_skill_root(registry_path)
+    manifest_exists = bool(manifest_path and (skill_root / manifest_path).exists())
 
     return {
         "status": "dry_run_plan",
@@ -174,7 +202,7 @@ def build_plan(registry_path: Path, registry: dict, source_id: str) -> dict:
         "paths": {
             "worktree": f"{repo_dir}/worktree",
             "manifest": manifest_path,
-            "manifest_exists": bool(manifest_path and Path(manifest_path).exists()),
+            "manifest_exists": manifest_exists,
             "git_state": f"{repo_dir}/git_state.json",
             "route_index": f"{repo_dir}/route_index.json",
             "graph": f"{repo_dir}/graphify-out/graph.json" if graph.get("enabled") else None,
@@ -221,30 +249,34 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv or sys.argv[1:])
-    registry_path = Path(args.registry)
-    registry = load_registry(registry_path)
-    plan = build_plan(registry_path, registry, args.source)
-    plan["offline_ok"] = bool(args.offline_ok)
+    try:
+        args = parse_args(argv or sys.argv[1:])
+        registry_path = Path(args.registry)
+        registry = load_registry(registry_path)
+        plan = build_plan(registry_path, registry, args.source)
+        plan["offline_ok"] = bool(args.offline_ok)
 
-    if args.dry_run:
+        if args.dry_run:
+            print(json.dumps(plan, indent=2, ensure_ascii=False, sort_keys=True))
+            return 0
+
         print(json.dumps(plan, indent=2, ensure_ascii=False, sort_keys=True))
-        return 0
-
-    print(json.dumps(plan, indent=2, ensure_ascii=False, sort_keys=True))
-    if args.write_cache:
-        print(
-            "--write-cache is intentionally not implemented in this staged draft; "
-            "clone/fetch/index/write-cache requires a separate reviewed implementation.",
-            file=sys.stderr,
-        )
-    else:
-        print(
-            "Write actions require an explicit --write-cache flag, and that mode is "
-            "not implemented in this staged draft. Rerun with --dry-run for read-only planning.",
-            file=sys.stderr,
-        )
-    return 2
+        if args.write_cache:
+            print(
+                "--write-cache is intentionally not implemented in this staged draft; "
+                "clone/fetch/index/write-cache requires a separate reviewed implementation.",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                "Write actions require an explicit --write-cache flag, and that mode is "
+                "not implemented in this staged draft. Rerun with --dry-run for read-only planning.",
+                file=sys.stderr,
+            )
+        return 2
+    except (OSError, ValueError, yaml.YAMLError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
