@@ -9,6 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 from pathlib import PurePosixPath
+from urllib.parse import urlparse
 
 import yaml
 
@@ -26,6 +27,16 @@ ALLOWED_MODES = {
 ALLOWED_PIN_POLICIES = {"record_resolved_commit", "exact_ref_only"}
 ALLOWED_UPDATE_POLICIES = {"fetch_latest_on_explicit_use", "no_auto_update", "manual_refresh_only"}
 ALLOWED_GRAPH_MODES = {"locator_only"}
+ALLOWED_REF_VALUES = {"main", "tags", "commit_sha"}
+CACHE_ROOT = "temp_artifact/repo_pointer_router_cache"
+CACHE_PREFIX = f"{CACHE_ROOT}/"
+REQUIRED_GITIGNORE_PATTERNS = {
+    "._*",
+    "__pycache__/",
+    "cache/",
+    "temp_artifact/",
+    "graphify-out/",
+}
 REQUIRED_SOURCE_FIELDS = {
     "source_id",
     "repo",
@@ -138,7 +149,78 @@ def validate_category_router_boundary(root: Path, route_id: str, router_doc: str
     require("scoped files" not in text, f"{route_id}: category router must not instruct direct scoped file reads", errors)
 
 
-def validate_materialization(source_id: str, materialization: dict, errors: list[str]) -> None:
+def validate_repo_url(source_id: str, repo_url: object, registry: dict, field: str, errors: list[str]) -> None:
+    require(isinstance(repo_url, str) and bool(repo_url), f"{source_id}: {field} must be a non-empty string", errors)
+    if not isinstance(repo_url, str) or not repo_url:
+        return
+    parsed = urlparse(repo_url)
+    require(parsed.scheme == "https", f"{source_id}: {field} scheme must be https: {repo_url}", errors)
+    allowlist = registry.get("materialization_defaults", {}).get("host_allowlist", [])
+    require(isinstance(allowlist, list), "materialization_defaults.host_allowlist must be a list", errors)
+    if isinstance(allowlist, list):
+        require(parsed.hostname in set(allowlist), f"{source_id}: {field} host is not allowlisted: {repo_url}", errors)
+
+
+def validate_locator_path(source_id: str, field: str, value: object, errors: list[str]) -> None:
+    require(isinstance(value, str) and bool(value), f"{source_id}: {field} must be a non-empty string", errors)
+    if not isinstance(value, str) or not value:
+        return
+    path = PurePosixPath(value)
+    require(not path.is_absolute(), f"{source_id}: {field} must be relative: {value}", errors)
+    require(".." not in path.parts, f"{source_id}: {field} must not contain '..': {value}", errors)
+    require("\\" not in value, f"{source_id}: {field} must use POSIX path separators: {value}", errors)
+
+
+def validate_cache_path(source_id: str, field: str, value: str, errors: list[str], *, allow_root: bool = False) -> None:
+    validate_locator_path(source_id, field, value, errors)
+    if not isinstance(value, str):
+        return
+    if allow_root and value == CACHE_ROOT:
+        return
+    require(
+        value.startswith(CACHE_PREFIX),
+        f"{source_id}: {field} must stay under {CACHE_PREFIX}: {value}",
+        errors,
+    )
+
+
+def validate_materialization_defaults(registry: dict, errors: list[str]) -> None:
+    defaults = registry.get("materialization_defaults")
+    require(isinstance(defaults, dict), "materialization_defaults must be a mapping", errors)
+    if not isinstance(defaults, dict):
+        return
+    validate_cache_path("defaults", "cache_root", defaults.get("cache_root"), errors, allow_root=True)
+    validate_cache_path("defaults", "manifest_index", defaults.get("manifest_index"), errors)
+    allowed_modes = defaults.get("allowed_modes")
+    require(isinstance(allowed_modes, list), "materialization_defaults.allowed_modes must be a list", errors)
+    if isinstance(allowed_modes, list):
+        require(set(allowed_modes) == ALLOWED_MODES, "materialization_defaults.allowed_modes must match validator modes", errors)
+    allowed_refs = defaults.get("allowed_refs")
+    require(isinstance(allowed_refs, list), "materialization_defaults.allowed_refs must be a list", errors)
+    if isinstance(allowed_refs, list):
+        require(set(allowed_refs) <= ALLOWED_REF_VALUES, "materialization_defaults.allowed_refs has unsupported values", errors)
+
+
+def validate_graph_scope(source_id: str, graph: dict, errors: list[str]) -> None:
+    scope = graph.get("scope")
+    require(isinstance(scope, dict), f"{source_id}: graph.scope must be a mapping", errors)
+    if not isinstance(scope, dict):
+        return
+    include = scope.get("include")
+    exclude = scope.get("exclude")
+    require(isinstance(include, list), f"{source_id}: graph.scope.include must be a list", errors)
+    require(isinstance(exclude, list), f"{source_id}: graph.scope.exclude must be a list", errors)
+    if isinstance(include, list):
+        for idx, item in enumerate(include):
+            validate_locator_path(source_id, f"graph.scope.include[{idx}]", item, errors)
+    if isinstance(exclude, list):
+        for idx, item in enumerate(exclude):
+            validate_locator_path(source_id, f"graph.scope.exclude[{idx}]", item, errors)
+    if graph.get("enabled"):
+        require(bool(include), f"{source_id}: enabled graph requires non-empty scope.include", errors)
+
+
+def validate_materialization(source_id: str, source: dict, registry: dict, materialization: dict, errors: list[str]) -> None:
     missing = sorted(REQUIRED_MATERIALIZATION_FIELDS - set(materialization))
     require(not missing, f"{source_id}: materialization missing fields: {', '.join(missing)}", errors)
 
@@ -146,6 +228,14 @@ def validate_materialization(source_id: str, materialization: dict, errors: list
     require(mode in ALLOWED_MODES, f"{source_id}: invalid materialization.mode {mode}", errors)
     require(materialization.get("pin_policy") in ALLOWED_PIN_POLICIES, f"{source_id}: invalid pin_policy", errors)
     require(materialization.get("update_policy") in ALLOWED_UPDATE_POLICIES, f"{source_id}: invalid update_policy", errors)
+    require(materialization.get("default_ref") == "main", f"{source_id}: default_ref must be main in staged draft", errors)
+    allowed_refs = materialization.get("allowed_refs")
+    require(isinstance(allowed_refs, list) and set(allowed_refs) <= ALLOWED_REF_VALUES, f"{source_id}: invalid allowed_refs", errors)
+
+    validate_repo_url(source_id, source.get("repo_url"), registry, "source.repo_url", errors)
+    validate_repo_url(source_id, materialization.get("repo_url"), registry, "materialization.repo_url", errors)
+    if isinstance(source.get("repo_url"), str) and isinstance(materialization.get("repo_url"), str):
+        require(source.get("repo_url") == materialization.get("repo_url"), f"{source_id}: source.repo_url and materialization.repo_url must match", errors)
 
     manifest = materialization.get("manifest")
     require(isinstance(manifest, dict) and isinstance(manifest.get("path"), str) and bool(manifest.get("path")), f"{source_id}: materialization.manifest.path required", errors)
@@ -156,32 +246,11 @@ def validate_materialization(source_id: str, materialization: dict, errors: list
     require(isinstance(graph, dict), f"{source_id}: materialization.graph must be a mapping", errors)
     if isinstance(graph, dict):
         require(graph.get("mode") in ALLOWED_GRAPH_MODES, f"{source_id}: graph.mode must be locator_only", errors)
-        scope = graph.get("scope")
-        require(isinstance(scope, dict), f"{source_id}: graph.scope must be a mapping", errors)
-        if isinstance(scope, dict):
-            include = scope.get("include")
-            exclude = scope.get("exclude")
-            require(isinstance(include, list), f"{source_id}: graph.scope.include must be a list", errors)
-            require(isinstance(exclude, list), f"{source_id}: graph.scope.exclude must be a list", errors)
-            if graph.get("enabled"):
-                require(bool(include), f"{source_id}: enabled graph requires non-empty scope.include", errors)
+        validate_graph_scope(source_id, graph, errors)
 
     for key in ("max_files", "max_bytes"):
         value = materialization.get(key)
         require(isinstance(value, int) and value > 0, f"{source_id}: {key} must be positive integer", errors)
-
-
-def validate_cache_path(source_id: str, field: str, value: str, errors: list[str]) -> None:
-    path = PurePosixPath(value)
-    require(not path.is_absolute(), f"{source_id}: {field} must be relative: {value}", errors)
-    require(".." not in path.parts, f"{source_id}: {field} must not contain '..': {value}", errors)
-    require(
-        value.startswith("temp_artifact/repo_pointer_router_cache/"),
-        f"{source_id}: {field} must stay under temp_artifact/repo_pointer_router_cache/: {value}",
-        errors,
-    )
-
-
 def validate_route_index(source_id: str, source: dict, errors: list[str]) -> None:
     route_index = source.get("route_index")
     if route_index is None:
@@ -195,6 +264,9 @@ def validate_route_index(source_id: str, source: dict, errors: list[str]) -> Non
         local_route = key[len(prefix) :] if key.startswith(prefix) else key
         require(bool(LOCAL_ROUTE_RE.match(local_route)), f"{source_id}: local route must be snake_case: {key}", errors)
         require(isinstance(paths, list) and all(isinstance(item, str) and item for item in paths), f"{source_id}: route_index[{key}] must be a non-empty string list", errors)
+        if isinstance(paths, list):
+            for idx, item in enumerate(paths):
+                validate_locator_path(source_id, f"route_index[{key}][{idx}]", item, errors)
 
 
 def validate_sources(root: Path, registry: dict, errors: list[str]) -> None:
@@ -239,7 +311,7 @@ def validate_sources(root: Path, registry: dict, errors: list[str]) -> None:
         materialization = source.get("materialization")
         require(isinstance(materialization, dict), f"{source_id}: materialization must be a mapping", errors)
         if isinstance(materialization, dict):
-            validate_materialization(source_id, materialization, errors)
+            validate_materialization(source_id, source, registry, materialization, errors)
         validate_route_index(source_id, source, errors)
 
     source_card_dir = root / "references/source-cards"
@@ -268,6 +340,14 @@ def validate_root_files(root: Path, errors: list[str]) -> None:
         "SKILL.md must name route-registry.yaml as category source of truth",
         errors,
     )
+    require("docs/ 下" not in skill_text, "SKILL.md must not claim the published root lives under docs/", errors)
+
+    gitignore = root / ".gitignore"
+    require(gitignore.is_file(), "required file missing: .gitignore", errors)
+    if gitignore.is_file():
+        patterns = set(gitignore.read_text(encoding="utf-8").splitlines())
+        missing_patterns = sorted(REQUIRED_GITIGNORE_PATTERNS - patterns)
+        require(not missing_patterns, f".gitignore missing generated-artifact exclusions: {', '.join(missing_patterns)}", errors)
 
     openai_yaml = root / "agents/openai.yaml"
     if openai_yaml.is_file():
@@ -285,6 +365,27 @@ def validate_root_files(root: Path, errors: list[str]) -> None:
         require(not path.name.startswith("._"), f"draft skill must not contain macOS sidecar file: {path.relative_to(root)}", errors)
 
 
+def validate_skill_category_sync(root: Path, registry: dict, errors: list[str]) -> None:
+    routes = registry.get("routes")
+    if not isinstance(routes, dict):
+        return
+    skill_path = root / "SKILL.md"
+    if not skill_path.is_file():
+        return
+    text = skill_path.read_text(encoding="utf-8")
+    match = re.search(r"^## Category\n(?P<body>.*?)(?:^## |\Z)", text, flags=re.MULTILINE | re.DOTALL)
+    require(match is not None, "SKILL.md must contain a Category section", errors)
+    if match is None:
+        return
+    listed = set(re.findall(r"^- `([^`]+)`:", match.group("body"), flags=re.MULTILINE))
+    expected = set(routes)
+    require(
+        listed == expected,
+        f"SKILL.md category bullets must match registry routes exactly: expected {sorted(expected)}, got {sorted(listed)}",
+        errors,
+    )
+
+
 def validate_source_card_content(source_id: str, card_path: Path, source: dict, errors: list[str]) -> None:
     text = card_path.read_text(encoding="utf-8")
     rel = card_path.name
@@ -296,6 +397,15 @@ def validate_source_card_content(source_id: str, card_path: Path, source: dict, 
 
     route_index = source.get("route_index") or {}
     if isinstance(route_index, dict):
+        expected_keys = set(route_index)
+        found_keys = set(
+            re.findall(
+                rf"(?<![A-Za-z0-9_./-]){re.escape(source_id)}/[a-z][a-z0-9_]*(?![A-Za-z0-9_./-])",
+                text,
+            )
+        )
+        extra_keys = sorted(found_keys - expected_keys)
+        require(not extra_keys, f"{source_id}: source card contains route_index keys not in registry: {', '.join(extra_keys)}", errors)
         for key, anchors in route_index.items():
             require(key in text, f"{source_id}: source card missing route_index key {key}", errors)
             if isinstance(anchors, list):
@@ -377,6 +487,8 @@ def main(argv: list[str] | None = None) -> int:
     if registry_path.is_file():
         try:
             registry = load_yaml(registry_path)
+            validate_materialization_defaults(registry, errors)
+            validate_skill_category_sync(root, registry, errors)
             validate_routes(root, registry, errors)
             validate_sources(root, registry, errors)
             validate_dry_run(root, registry_path, registry, errors)

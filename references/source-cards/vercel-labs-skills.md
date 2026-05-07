@@ -33,6 +33,9 @@ category: skill_building
 - `README.md`
 - `AGENTS.md`
 - `skills/find-skills/SKILL.md`
+- `src/cli.ts`
+- `src/add.ts`
+- `src/installer.ts`
 - `src/source-parser.ts`
 - `src/skill-lock.ts`
 - `src/skills.ts`
@@ -44,9 +47,13 @@ category: skill_building
 - `vercel-labs-skills/discovery_installation`
   - `README.md`
   - `skills/find-skills/SKILL.md`
+  - `src/cli.ts`
+  - `src/add.ts`
+  - `src/installer.ts`
 - `vercel-labs-skills/source_parsing`
   - `src/source-parser.ts`
 - `vercel-labs-skills/lock_update`
+  - `src/cli.ts`
   - `src/skill-lock.ts`
   - `src/skills.ts`
 

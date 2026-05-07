@@ -194,6 +194,9 @@ sources:
       - "README.md"
       - "AGENTS.md"
       - "skills/find-skills/SKILL.md"
+      - "src/cli.ts"
+      - "src/add.ts"
+      - "src/installer.ts"
       - "src/source-parser.ts"
       - "src/skill-lock.ts"
       - "src/skills.ts"
@@ -201,9 +204,13 @@ sources:
       vercel-labs-skills/discovery_installation:
         - "README.md"
         - "skills/find-skills/SKILL.md"
+        - "src/cli.ts"
+        - "src/add.ts"
+        - "src/installer.ts"
       vercel-labs-skills/source_parsing:
         - "src/source-parser.ts"
       vercel-labs-skills/lock_update:
+        - "src/cli.ts"
         - "src/skill-lock.ts"
         - "src/skills.ts"
     do_not_use_for:
@@ -257,20 +264,21 @@ sources:
       - "plugins/promptfoo/skills/promptfoo-provider-setup/SKILL.md"
     route_index:
       promptfoo-promptfoo/eval_basics:
-        - "site/docs/getting-started"
-        - "site/docs/configuration"
+        - "site/docs/getting-started.md"
+        - "site/docs/configuration/guide.md"
         - "plugins/promptfoo/skills/promptfoo-evals/SKILL.md"
       promptfoo-promptfoo/redteam:
-        - "site/docs/red-team"
+        - "site/docs/red-team/index.md"
         - "plugins/promptfoo/skills/promptfoo-redteam-setup/SKILL.md"
         - "plugins/promptfoo/skills/promptfoo-redteam-run/SKILL.md"
       promptfoo-promptfoo/provider_setup:
         - "plugins/promptfoo/skills/promptfoo-provider-setup/SKILL.md"
-        - "site/docs/providers"
-        - "site/docs/usage/command-line"
+        - "site/docs/providers/index.md"
+        - "site/docs/usage/command-line.md"
       promptfoo-promptfoo/ci_regression:
-        - "site/docs/integrations"
-        - "site/docs/usage/command-line"
+        - "site/docs/integrations/ci-cd.md"
+        - "site/docs/integrations/github-action.md"
+        - "site/docs/usage/command-line.md"
     do_not_use_for:
       - "production_observability_without_trace_system"
       - "unversioned_model_comparison_claims"

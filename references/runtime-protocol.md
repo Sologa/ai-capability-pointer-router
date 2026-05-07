@@ -30,4 +30,4 @@
 
 ## No Runtime Install
 
-本資料夾是 `docs/` 下 staged draft，不會自動啟用。除非使用者另行要求，不得 copy/symlink 到 `.agents/skills`、Codex 全域 skill root 或 OMX 設定。
+此 repository root 是 staged draft，不會自動啟用。除非使用者另行要求，不得 copy/symlink 到 `.agents/skills`、Codex 全域 skill root 或 OMX 設定。

@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
+from pathlib import PurePosixPath
 from urllib.parse import urlparse
 
 import yaml
@@ -24,6 +26,10 @@ ALLOWED_MODES = {
     "materialize_and_graph_on_first_use",
     "manual_only",
 }
+SOURCE_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+CACHE_ROOT = "temp_artifact/repo_pointer_router_cache"
+CACHE_PREFIX = f"{CACHE_ROOT}/"
+ALLOWED_REF_VALUES = {"main", "tags", "commit_sha"}
 
 
 def load_registry(path: Path) -> dict:
@@ -34,7 +40,71 @@ def load_registry(path: Path) -> dict:
     return data
 
 
+def validate_source_id(source_id: str) -> None:
+    if not SOURCE_RE.match(source_id):
+        raise ValueError(f"source id must be lowercase kebab-case: {source_id}")
+
+
+def validate_cache_path(field: str, value: str, *, allow_root: bool = False) -> str:
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{field} must be a non-empty string")
+    path = PurePosixPath(value)
+    if path.is_absolute():
+        raise ValueError(f"{field} must be relative: {value}")
+    if ".." in path.parts:
+        raise ValueError(f"{field} must not contain '..': {value}")
+    if "\\" in value:
+        raise ValueError(f"{field} must use POSIX path separators: {value}")
+    if allow_root and value == CACHE_ROOT:
+        return value
+    if not value.startswith(CACHE_PREFIX):
+        raise ValueError(f"{field} must stay under {CACHE_PREFIX}: {value}")
+    return value
+
+
+def validate_locator_path(field: str, value: object) -> None:
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{field} must be a non-empty string")
+    path = PurePosixPath(value)
+    if path.is_absolute():
+        raise ValueError(f"{field} must be relative: {value}")
+    if ".." in path.parts:
+        raise ValueError(f"{field} must not contain '..': {value}")
+    if "\\" in value:
+        raise ValueError(f"{field} must use POSIX path separators: {value}")
+
+
+def validate_graph_scope(source_id: str, materialization: dict) -> None:
+    graph = materialization.get("graph")
+    if not isinstance(graph, dict):
+        raise ValueError(f"{source_id}: materialization.graph must be a mapping")
+    scope = graph.get("scope")
+    if not isinstance(scope, dict):
+        raise ValueError(f"{source_id}: graph.scope must be a mapping")
+    include = scope.get("include")
+    exclude = scope.get("exclude")
+    if not isinstance(include, list) or not isinstance(exclude, list):
+        raise ValueError(f"{source_id}: graph scope include/exclude must be lists")
+    if graph.get("enabled") and not include:
+        raise ValueError(f"{source_id}: enabled graph requires non-empty scope.include")
+    for idx, item in enumerate(include):
+        validate_locator_path(f"{source_id}: graph.scope.include[{idx}]", item)
+    for idx, item in enumerate(exclude):
+        validate_locator_path(f"{source_id}: graph.scope.exclude[{idx}]", item)
+
+
+def validate_repo_url(source_id: str, repo_url: str, registry: dict) -> None:
+    parsed = urlparse(repo_url)
+    if parsed.scheme != "https":
+        raise ValueError(f"{source_id}: repo_url scheme must be https: {repo_url}")
+
+    allowlist = set(registry.get("materialization_defaults", {}).get("host_allowlist", []))
+    if parsed.hostname not in allowlist:
+        raise ValueError(f"{source_id}: repo host '{parsed.hostname}' is not allowlisted")
+
+
 def validate_source(registry: dict, source_id: str) -> dict:
+    validate_source_id(source_id)
     sources = registry.get("sources")
     if not isinstance(sources, dict):
         raise ValueError("registry.sources must be a mapping")
@@ -53,11 +123,28 @@ def validate_source(registry: dict, source_id: str) -> dict:
     repo_url = materialization.get("repo_url") or source.get("repo_url")
     if not isinstance(repo_url, str) or not repo_url:
         raise ValueError(f"{source_id}: missing repo_url")
+    source_repo_url = source.get("repo_url")
+    if isinstance(source_repo_url, str) and source_repo_url and source_repo_url != repo_url:
+        raise ValueError(f"{source_id}: source.repo_url and materialization.repo_url must match")
+    validate_repo_url(source_id, repo_url, registry)
 
-    allowlist = set(registry.get("materialization_defaults", {}).get("host_allowlist", []))
-    host = urlparse(repo_url).hostname
-    if host not in allowlist:
-        raise ValueError(f"{source_id}: repo host '{host}' is not allowlisted")
+    allowed_refs = materialization.get("allowed_refs")
+    if not isinstance(allowed_refs, list) or not all(item in ALLOWED_REF_VALUES for item in allowed_refs):
+        raise ValueError(f"{source_id}: allowed_refs must be a list drawn from {sorted(ALLOWED_REF_VALUES)}")
+
+    defaults = registry.get("materialization_defaults", {})
+    cache_root = defaults.get("cache_root", CACHE_ROOT)
+    validate_cache_path("materialization_defaults.cache_root", cache_root, allow_root=True)
+    manifest_index = defaults.get("manifest_index")
+    if manifest_index is not None:
+        validate_cache_path("materialization_defaults.manifest_index", manifest_index)
+
+    manifest = materialization.get("manifest")
+    if not isinstance(manifest, dict):
+        raise ValueError(f"{source_id}: missing materialization.manifest mapping")
+    manifest_path = manifest.get("path")
+    validate_cache_path(f"{source_id}: materialization.manifest.path", manifest_path)
+    validate_graph_scope(source_id, materialization)
 
     return source
 
@@ -66,7 +153,7 @@ def build_plan(registry_path: Path, registry: dict, source_id: str) -> dict:
     source = validate_source(registry, source_id)
     materialization = source["materialization"]
     cache_root = registry.get("materialization_defaults", {}).get(
-        "cache_root", "temp_artifact/repo_pointer_router_cache"
+        "cache_root", CACHE_ROOT
     )
     repo_dir = f"{cache_root}/repos/{source_id}"
     graph = materialization.get("graph", {})

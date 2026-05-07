@@ -5,7 +5,7 @@ description: Use when a user asks which AI capability repository to consult for 
 
 # AI Capability Pointer Router
 
-這是 staged Codex skill draft，保存在 `docs/` 下供審查；它不是 runtime-installed skill。
+此 repository root 是 staged Codex skill draft，供審查與改進；它不是 runtime-installed skill。
 
 ## 必守路由
 

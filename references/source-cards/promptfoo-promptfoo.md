@@ -41,20 +41,21 @@ category: eval_benchmark
 這些 anchors 只定位檔案，不直接支撐 factual claim。Promptfoo current behavior 必須 refresh 或使用 pinned raw source。
 
 - `promptfoo-promptfoo/eval_basics`
-  - `site/docs/getting-started`
-  - `site/docs/configuration`
+  - `site/docs/getting-started.md`
+  - `site/docs/configuration/guide.md`
   - `plugins/promptfoo/skills/promptfoo-evals/SKILL.md`
 - `promptfoo-promptfoo/redteam`
-  - `site/docs/red-team`
+  - `site/docs/red-team/index.md`
   - `plugins/promptfoo/skills/promptfoo-redteam-setup/SKILL.md`
   - `plugins/promptfoo/skills/promptfoo-redteam-run/SKILL.md`
 - `promptfoo-promptfoo/provider_setup`
   - `plugins/promptfoo/skills/promptfoo-provider-setup/SKILL.md`
-  - `site/docs/providers`
-  - `site/docs/usage/command-line`
+  - `site/docs/providers/index.md`
+  - `site/docs/usage/command-line.md`
 - `promptfoo-promptfoo/ci_regression`
-  - `site/docs/integrations`
-  - `site/docs/usage/command-line`
+  - `site/docs/integrations/ci-cd.md`
+  - `site/docs/integrations/github-action.md`
+  - `site/docs/usage/command-line.md`
 
 ## Materialization
 
