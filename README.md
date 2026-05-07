@@ -2,6 +2,8 @@
 
 Status: staged Codex skill draft. This repository is published for review and iteration; it is not meant to be copied into a runtime skill root without an explicit install decision.
 
+License: Apache-2.0.
+
 ## What It Does
 
 This repo defines a three-layer lazy pointer tree for AI capability sources:
@@ -26,8 +28,12 @@ The registry source of truth is `references/route-registry.yaml`.
 - `schemas/route-registry.schema.json`
 - `schemas/materialization-plan.schema.json`
 - `schemas/anchor-check-report.schema.json`
+- `schemas/materialization-manifest.schema.json`
+- `schemas/route-index-artifact.schema.json`
+- `schemas/locator-graph.schema.json`
+- `schemas/graph-report.schema.json`
 
-The Python validator is still the authoritative local check for cross-file closure and safety invariants. The schemas document artifact shapes for review and future tooling.
+The Python validator is still the authoritative local check for cross-file closure and safety invariants. It also applies the registry and dry-run plan schemas as a second validation layer. The graph/index schemas are contract-only documents for future reviewed tooling; they do not mean graph artifacts are currently generated or published.
 
 ## Validate
 
@@ -52,6 +58,7 @@ python scripts/materialize_repo_pointer.py \
 ```
 
 `--write-cache` is intentionally rejected until clone/fetch/index/write-cache behavior has a separate reviewed implementation.
+The combined `--dry-run --write-cache` form is also rejected; any write-cache request is outside this staged draft.
 
 ## Optional Upstream Anchor Check
 
@@ -61,7 +68,7 @@ The default validator is offline. To check whether `read_first` and route-index 
 python validation/check_upstream_anchors.py references/route-registry.yaml --ref main
 ```
 
-This command performs network reads against GitHub raw URLs and should be treated as review-time evidence, not as a replacement for reading raw source files before making factual claims.
+This command performs network reads against GitHub raw URLs and, in JSON mode, attempts to include resolved commit and blob SHA metadata from the GitHub API. Treat the output as review-time locator metadata, not as a replacement for reading raw source files before making factual claims.
 
 ## Add a Category
 
@@ -80,6 +87,6 @@ This command performs network reads against GitHub raw URLs and should be treate
 5. Use exact raw-file anchors when possible; if a docs route has no single raw file, point to the concrete leaf pages actually needed.
 6. Run dry-run materialization for the new source and then run the validator and tests.
 
-## Publication Gaps
+## Publication Boundaries
 
-This draft still needs an owner-selected `LICENSE` before it should be treated as publicly reusable. Graph artifacts are intentionally absent; graph semantics are currently locator-only contracts, not a built graph release.
+This repo is licensed under Apache-2.0 for reuse, review, and iteration. It is still not a runtime-installed skill by default. Graph artifacts are intentionally absent; graph semantics are currently locator-only contracts, not a built graph release.

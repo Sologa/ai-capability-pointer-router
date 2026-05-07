@@ -26,6 +26,9 @@ ALLOWED_MODES = {
     "materialize_and_graph_on_first_use",
     "manual_only",
 }
+ALLOWED_PIN_POLICIES = {"record_resolved_commit", "exact_ref_only"}
+ALLOWED_UPDATE_POLICIES = {"fetch_latest_on_explicit_use", "no_auto_update", "manual_refresh_only"}
+ALLOWED_GRAPH_MODES = {"locator_only"}
 SOURCE_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 CACHE_ROOT = "temp_artifact/repo_pointer_router_cache"
 CACHE_PREFIX = f"{CACHE_ROOT}/"
@@ -137,6 +140,12 @@ def validate_source(registry: dict, source_id: str) -> dict:
     mode = materialization.get("mode")
     if mode not in ALLOWED_MODES:
         raise ValueError(f"{source_id}: invalid materialization.mode '{mode}'")
+    if materialization.get("pin_policy") not in ALLOWED_PIN_POLICIES:
+        raise ValueError(f"{source_id}: invalid pin_policy")
+    if materialization.get("update_policy") not in ALLOWED_UPDATE_POLICIES:
+        raise ValueError(f"{source_id}: invalid update_policy")
+    if materialization.get("default_ref") != "main":
+        raise ValueError(f"{source_id}: default_ref must be main in staged draft")
 
     repo_url = materialization.get("repo_url") or source.get("repo_url")
     if not isinstance(repo_url, str) or not repo_url:
@@ -171,6 +180,14 @@ def validate_source(registry: dict, source_id: str) -> dict:
     manifest_path = manifest.get("path")
     validate_cache_path(f"{source_id}: materialization.manifest.path", manifest_path)
     validate_graph_scope(source_id, materialization)
+    graph = materialization.get("graph")
+    if isinstance(graph, dict) and graph.get("mode") not in ALLOWED_GRAPH_MODES:
+        raise ValueError(f"{source_id}: graph.mode must be locator_only")
+
+    for key in ("max_files", "max_bytes"):
+        value = materialization.get(key)
+        if not isinstance(value, int) or value <= 0:
+            raise ValueError(f"{source_id}: {key} must be positive integer")
 
     return source
 
@@ -251,6 +268,14 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     try:
         args = parse_args(argv or sys.argv[1:])
+        if args.write_cache:
+            print(
+                "--write-cache is intentionally not implemented in this staged draft; "
+                "clone/fetch/index/write-cache requires a separate reviewed implementation.",
+                file=sys.stderr,
+            )
+            return 2
+
         registry_path = Path(args.registry)
         registry = load_registry(registry_path)
         plan = build_plan(registry_path, registry, args.source)
@@ -261,18 +286,11 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         print(json.dumps(plan, indent=2, ensure_ascii=False, sort_keys=True))
-        if args.write_cache:
-            print(
-                "--write-cache is intentionally not implemented in this staged draft; "
-                "clone/fetch/index/write-cache requires a separate reviewed implementation.",
-                file=sys.stderr,
-            )
-        else:
-            print(
-                "Write actions require an explicit --write-cache flag, and that mode is "
-                "not implemented in this staged draft. Rerun with --dry-run for read-only planning.",
-                file=sys.stderr,
-            )
+        print(
+            "Write actions require an explicit --write-cache flag, and that mode is "
+            "not implemented in this staged draft. Rerun with --dry-run for read-only planning.",
+            file=sys.stderr,
+        )
         return 2
     except (OSError, ValueError, yaml.YAMLError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

@@ -3,9 +3,14 @@
   "$id": "https://github.com/Sologa/ai-capability-pointer-router/schemas/route-registry.schema.json",
   "title": "AI Capability Pointer Router Registry",
   "type": "object",
+  "additionalProperties": false,
   "required": [
     "version",
+    "created",
     "status",
+    "purpose",
+    "tree_depth_invariant",
+    "route_index_key_rule",
     "materialization_defaults",
     "routes",
     "sources"
@@ -14,72 +19,508 @@
     "version": {
       "type": "string"
     },
+    "created": {
+      "type": "string",
+      "format": "date"
+    },
     "status": {
       "const": "staged_draft"
+    },
+    "purpose": {
+      "type": "string"
+    },
+    "tree_depth_invariant": {
+      "type": "object",
+      "required": [
+        "root",
+        "category_router",
+        "source_card",
+        "raw_file_rule"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string"
+        },
+        "category_router": {
+          "type": "string"
+        },
+        "source_card": {
+          "type": "string"
+        },
+        "raw_file_rule": {
+          "type": "string"
+        }
+      }
     },
     "route_index_key_rule": {
       "const": "<source_id>/<local_route>"
     },
     "materialization_defaults": {
+      "$ref": "#/$defs/materialization_defaults"
+    },
+    "routes": {
       "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/route"
+      }
+    },
+    "sources": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/source"
+      }
+    }
+  },
+  "$defs": {
+    "source_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "route_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "repo_display_url": {
+      "type": "string",
+      "pattern": "^https://github\\.com/[^/]+/[^/]+$"
+    },
+    "repo_clone_url": {
+      "type": "string",
+      "pattern": "^https://github\\.com/[^/]+/[^/]+\\.git$"
+    },
+    "locator_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+"
+    },
+    "cache_path": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/locator_path"
+        },
+        {
+          "pattern": "^temp_artifact/repo_pointer_router_cache/.+"
+        }
+      ]
+    },
+    "materialization_defaults": {
+      "type": "object",
+      "additionalProperties": false,
       "required": [
         "cache_root",
         "script",
         "host_allowlist",
         "allowed_modes",
+        "default_ref",
+        "allowed_refs",
+        "pin_policy",
+        "update_policy",
         "graph_semantics",
         "manifest_index",
+        "stale_after_hours_by_sensitivity",
         "safety"
-      ]
-    },
-    "routes": {
-      "type": "object",
-      "additionalProperties": {
-        "type": "object",
-        "required": [
-          "route_id",
-          "router_doc",
-          "sources"
-        ],
-        "properties": {
-          "route_id": {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9_]*$"
+      ],
+      "properties": {
+        "cache_root": {
+          "const": "temp_artifact/repo_pointer_router_cache"
+        },
+        "script": {
+          "const": "scripts/materialize_repo_pointer.py"
+        },
+        "host_allowlist": {
+          "type": "array",
+          "items": {
+            "const": "github.com"
           },
-          "router_doc": {
-            "type": "string"
+          "minItems": 1
+        },
+        "allowed_modes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "pointer_only",
+              "materialize_on_first_use",
+              "materialize_and_graph_on_first_use",
+              "manual_only"
+            ]
           },
-          "sources": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          "minItems": 4,
+          "uniqueItems": true
+        },
+        "default_ref": {
+          "const": "main"
+        },
+        "allowed_refs": {
+          "$ref": "#/$defs/allowed_refs"
+        },
+        "pin_policy": {
+          "enum": [
+            "record_resolved_commit",
+            "exact_ref_only"
+          ]
+        },
+        "update_policy": {
+          "enum": [
+            "fetch_latest_on_explicit_use",
+            "no_auto_update",
+            "manual_refresh_only"
+          ]
+        },
+        "graph_semantics": {
+          "const": "locator_only"
+        },
+        "manifest_index": {
+          "$ref": "#/$defs/cache_path"
+        },
+        "stale_after_hours_by_sensitivity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "low",
+            "medium",
+            "high",
+            "very_high"
+          ],
+          "properties": {
+            "low": {
+              "type": "integer",
+              "minimum": 1
             },
-            "minItems": 1
+            "medium": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "high": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "very_high": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "safety": {
+          "$ref": "#/$defs/safety_policy"
+        }
+      }
+    },
+    "allowed_refs": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "main",
+          "tags",
+          "commit_sha"
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "safety_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_repo_code",
+        "run_package_install",
+        "run_repo_hooks",
+        "follow_external_symlinks",
+        "require_scope_for_graph"
+      ],
+      "properties": {
+        "run_repo_code": {
+          "const": false
+        },
+        "run_package_install": {
+          "const": false
+        },
+        "run_repo_hooks": {
+          "const": false
+        },
+        "follow_external_symlinks": {
+          "const": false
+        },
+        "require_scope_for_graph": {
+          "const": true
+        }
+      }
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "route_id",
+        "router_doc",
+        "description",
+        "sources",
+        "default_read_strategy",
+        "materialization_decision"
+      ],
+      "properties": {
+        "route_id": {
+          "$ref": "#/$defs/route_id"
+        },
+        "router_doc": {
+          "$ref": "#/$defs/locator_path"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/source_id"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "default_read_strategy": {
+          "type": "string"
+        },
+        "materialization_decision": {
+          "type": "string"
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "repo",
+        "repo_url",
+        "category",
+        "source_card_path",
+        "authority_level",
+        "refresh_sensitivity",
+        "stale_after_hours",
+        "last_verified",
+        "representation",
+        "materialization",
+        "read_first",
+        "route_index",
+        "do_not_use_for"
+      ],
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/source_id"
+        },
+        "repo": {
+          "$ref": "#/$defs/repo_display_url"
+        },
+        "repo_url": {
+          "$ref": "#/$defs/repo_clone_url"
+        },
+        "category": {
+          "$ref": "#/$defs/route_id"
+        },
+        "source_card_path": {
+          "$ref": "#/$defs/locator_path"
+        },
+        "authority_level": {
+          "type": "string"
+        },
+        "refresh_sensitivity": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "very_high"
+          ]
+        },
+        "stale_after_hours": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "last_verified": {
+          "$ref": "#/$defs/last_verified"
+        },
+        "representation": {
+          "type": "string"
+        },
+        "materialization": {
+          "$ref": "#/$defs/materialization"
+        },
+        "read_first": {
+          "$ref": "#/$defs/locator_path_list"
+        },
+        "route_index": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*/[a-z][a-z0-9_]*$"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/locator_path_list"
+          }
+        },
+        "do_not_use_for": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
           }
         }
       }
     },
-    "sources": {
+    "last_verified": {
       "type": "object",
-      "additionalProperties": {
-        "type": "object",
-        "required": [
-          "source_id",
-          "repo",
-          "repo_url",
-          "category",
-          "source_card_path",
-          "authority_level",
-          "refresh_sensitivity",
-          "stale_after_hours",
-          "last_verified",
-          "representation",
-          "materialization",
-          "read_first",
-          "do_not_use_for"
-        ]
+      "additionalProperties": false,
+      "required": [
+        "date",
+        "method",
+        "checked_ref",
+        "checked_paths"
+      ],
+      "properties": {
+        "date": {
+          "type": "string",
+          "format": "date"
+        },
+        "method": {
+          "const": "github_raw_head"
+        },
+        "checked_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "checked_paths": {
+          "$ref": "#/$defs/locator_path_list"
+        }
       }
+    },
+    "materialization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "strategy",
+        "repo_url",
+        "default_ref",
+        "allowed_refs",
+        "pin_policy",
+        "update_policy",
+        "manifest",
+        "graph",
+        "max_files",
+        "max_bytes"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "pointer_only",
+            "materialize_on_first_use",
+            "materialize_and_graph_on_first_use",
+            "manual_only"
+          ]
+        },
+        "strategy": {
+          "const": "git_clone_fetch_checkout"
+        },
+        "repo_url": {
+          "$ref": "#/$defs/repo_clone_url"
+        },
+        "default_ref": {
+          "const": "main"
+        },
+        "allowed_refs": {
+          "$ref": "#/$defs/allowed_refs"
+        },
+        "pin_policy": {
+          "enum": [
+            "record_resolved_commit",
+            "exact_ref_only"
+          ]
+        },
+        "update_policy": {
+          "enum": [
+            "fetch_latest_on_explicit_use",
+            "no_auto_update",
+            "manual_refresh_only"
+          ]
+        },
+        "manifest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path"
+          ],
+          "properties": {
+            "path": {
+              "$ref": "#/$defs/cache_path"
+            }
+          }
+        },
+        "graph": {
+          "$ref": "#/$defs/graph_contract"
+        },
+        "max_files": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_bytes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "graph_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "mode",
+        "scope"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "mode": {
+          "const": "locator_only"
+        },
+        "rebuild_policy": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "include",
+            "exclude"
+          ],
+          "properties": {
+            "include": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/locator_path"
+              }
+            },
+            "exclude": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/locator_path"
+              }
+            }
+          }
+        }
+      }
+    },
+    "locator_path_list": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/locator_path"
+      },
+      "minItems": 1,
+      "uniqueItems": true
     }
   }
 }

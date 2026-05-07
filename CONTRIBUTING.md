@@ -32,4 +32,4 @@ python validation/check_upstream_anchors.py references/route-registry.yaml --ref
 - Do not claim source cards, route indexes, manifests, or graph outputs are evidence.
 - Do not add automatic clone/fetch/write-cache behavior without a separate security review.
 - Do not add generated artifacts to the repository.
-- Do not add a license file unless the repository owner has chosen the license.
+- The repository license is Apache-2.0. Do not change licensing without an explicit owner decision.

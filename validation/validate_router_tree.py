@@ -12,6 +12,7 @@ from pathlib import PurePosixPath
 from urllib.parse import urlparse
 
 import yaml
+from jsonschema import Draft202012Validator, FormatChecker, SchemaError
 
 
 ROUTE_RE = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -74,13 +75,19 @@ REQUIRED_SCHEMA_FILES = [
     "schemas/route-registry.schema.json",
     "schemas/materialization-plan.schema.json",
     "schemas/anchor-check-report.schema.json",
+    "schemas/materialization-manifest.schema.json",
+    "schemas/route-index-artifact.schema.json",
+    "schemas/locator-graph.schema.json",
+    "schemas/graph-report.schema.json",
 ]
 REQUIRED_PUBLIC_HEALTH_FILES = [
     "README.md",
+    "LICENSE",
     "CONTRIBUTING.md",
     "SECURITY.md",
     "CHANGELOG.md",
     "CODE_OF_CONDUCT.md",
+    ".github/ISSUE_TEMPLATE/config.yml",
     ".github/pull_request_template.md",
     ".github/ISSUE_TEMPLATE/bug_report.md",
     ".github/ISSUE_TEMPLATE/source_update.md",
@@ -126,6 +133,31 @@ def read_frontmatter(path: Path) -> dict:
 def load_json(path: Path) -> object:
     with path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def validate_json_schema_instance(
+    root: Path,
+    schema_rel_path: str,
+    instance: object,
+    instance_name: str,
+    errors: list[str],
+) -> None:
+    schema_path = root / schema_rel_path
+    if not schema_path.is_file():
+        return
+    try:
+        schema = load_json(schema_path)
+        Draft202012Validator.check_schema(schema)
+        validator = Draft202012Validator(schema, format_checker=FormatChecker())
+        schema_errors = sorted(validator.iter_errors(instance), key=lambda error: list(error.path))
+    except (OSError, json.JSONDecodeError, SchemaError) as exc:
+        errors.append(f"{schema_rel_path}: invalid JSON schema: {exc}")
+        return
+
+    for error in schema_errors:
+        path = ".".join(str(part) for part in error.absolute_path)
+        location = f"{instance_name}.{path}" if path else instance_name
+        errors.append(f"{location}: schema violation: {error.message}")
 
 
 def rel_exists(root: Path, rel_path: str) -> bool:
@@ -463,7 +495,9 @@ def validate_root_files(root: Path, errors: list[str]) -> None:
                 data = load_json(schema_path)
                 require(isinstance(data, dict), f"{rel_path}: schema root must be a JSON object", errors)
                 require(isinstance(data, dict) and data.get("$schema"), f"{rel_path}: schema must declare $schema", errors)
-            except (OSError, json.JSONDecodeError) as exc:
+                if isinstance(data, dict):
+                    Draft202012Validator.check_schema(data)
+            except (OSError, json.JSONDecodeError, SchemaError) as exc:
                 errors.append(f"{rel_path}: invalid JSON schema: {exc}")
 
     skill_text = (root / "SKILL.md").read_text(encoding="utf-8") if (root / "SKILL.md").is_file() else ""
@@ -578,6 +612,13 @@ def validate_dry_run(root: Path, registry_path: Path, registry: dict, errors: li
             errors.append(f"{source_id}: dry-run did not emit JSON: {exc}")
             continue
         require(plan.get("status") == "dry_run_plan", f"{source_id}: dry-run status must be dry_run_plan", errors)
+        validate_json_schema_instance(
+            root,
+            "schemas/materialization-plan.schema.json",
+            plan,
+            f"{source_id} dry-run plan",
+            errors,
+        )
         for key in ("clone", "fetch", "run_package_install", "run_repo_scripts", "run_hooks"):
             require(plan.get("safety", {}).get(key) is False, f"{source_id}: dry-run safety.{key} must be false", errors)
         require("stale_after_hours" in plan, f"{source_id}: dry-run plan missing stale_after_hours", errors)
@@ -594,6 +635,7 @@ def validate_dry_run(root: Path, registry_path: Path, registry: dict, errors: li
                 str(registry_path),
                 "--source",
                 first_source,
+                "--dry-run",
                 "--write-cache",
                 "--offline-ok",
             ],
@@ -620,6 +662,13 @@ def main(argv: list[str] | None = None) -> int:
     if registry_path.is_file():
         try:
             registry = load_yaml(registry_path)
+            validate_json_schema_instance(
+                root,
+                "schemas/route-registry.schema.json",
+                registry,
+                "references/route-registry.yaml",
+                errors,
+            )
             validate_materialization_defaults(registry, errors)
             validate_skill_category_sync(root, registry, errors)
             validate_routes(root, registry, errors)

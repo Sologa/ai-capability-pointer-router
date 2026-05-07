@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Sologa/ai-capability-pointer-router/schemas/locator-graph.schema.json",
+  "title": "Locator Graph Contract",
+  "description": "Contract-only schema for future graph output. Graph nodes are locators only and are not factual evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "source_id",
+    "repo_url",
+    "resolved_commit",
+    "generated_at",
+    "semantics",
+    "nodes",
+    "edges"
+  ],
+  "properties": {
+    "source_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "repo_url": {
+      "type": "string",
+      "pattern": "^https://github\\.com/[^/]+/[^/]+\\.git$"
+    },
+    "resolved_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "semantics": {
+      "const": "locator_only"
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/node"
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/edge"
+      }
+    }
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "path",
+        "locator_type"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "$ref": "#/$defs/locator_path"
+        },
+        "locator_type": {
+          "enum": [
+            "file",
+            "heading",
+            "route_index_entry"
+          ]
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "to",
+        "relation"
+      ],
+      "properties": {
+        "from": {
+          "type": "string",
+          "minLength": 1
+        },
+        "to": {
+          "type": "string",
+          "minLength": 1
+        },
+        "relation": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "locator_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+"
+    }
+  }
+}

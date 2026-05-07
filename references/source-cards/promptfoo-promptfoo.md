@@ -18,7 +18,7 @@ category: eval_benchmark
 ## Use For
 
 - prompt/model/provider eval。
-- skill behavior eval。
+- agent / skill output eval suites when Promptfoo target/provider wiring is configured。
 - redteam setup / run workflow。
 - CI regression 與 eval artifact triage。
 
@@ -59,6 +59,6 @@ category: eval_benchmark
 
 ## Materialization
 
-使用 `materialize_and_graph_on_first_use`。graph scope 僅限 `site/docs`、`examples`、`plugins/promptfoo/skills`，且 graph 仍是 locator only。
+使用 `materialize_and_graph_on_first_use`。目前這只是 locator plan，不是已實作的 clone/fetch/graph action。graph scope 僅限 `site/docs`、`examples`、`plugins/promptfoo/skills`，且 graph 仍是 locator only。
 
 Manifest locator: `temp_artifact/repo_pointer_router_cache/repos/promptfoo-promptfoo/materialization.json`

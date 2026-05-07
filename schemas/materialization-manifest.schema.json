@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Sologa/ai-capability-pointer-router/schemas/materialization-manifest.schema.json",
+  "title": "Materialization Manifest Contract",
+  "description": "Contract-only schema for a future reviewed materialization writer. This repo does not currently generate this artifact.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "source_id",
+    "repo_url",
+    "requested_ref",
+    "resolved_commit",
+    "materialized_at",
+    "worktree_path",
+    "safety"
+  ],
+  "properties": {
+    "source_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "repo_url": {
+      "type": "string",
+      "pattern": "^https://github\\.com/[^/]+/[^/]+\\.git$"
+    },
+    "requested_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "resolved_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "materialized_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "worktree_path": {
+      "$ref": "#/$defs/cache_path"
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_package_install",
+        "run_repo_scripts",
+        "run_hooks",
+        "follow_external_symlinks"
+      ],
+      "properties": {
+        "run_package_install": {
+          "const": false
+        },
+        "run_repo_scripts": {
+          "const": false
+        },
+        "run_hooks": {
+          "const": false
+        },
+        "follow_external_symlinks": {
+          "const": false
+        }
+      }
+    }
+  },
+  "$defs": {
+    "cache_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^temp_artifact/repo_pointer_router_cache/(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+"
+    }
+  }
+}

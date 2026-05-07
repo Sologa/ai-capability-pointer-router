@@ -9,6 +9,7 @@ import unittest
 from pathlib import Path
 
 import yaml
+from jsonschema import Draft202012Validator, FormatChecker
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -64,16 +65,22 @@ class RouterTreeValidationTests(unittest.TestCase):
         )
 
     def run_materializer(self, root: Path, source: str) -> subprocess.CompletedProcess[str]:
+        return self.run_materializer_args(
+            root,
+            "--source",
+            source,
+            "--dry-run",
+            "--offline-ok",
+        )
+
+    def run_materializer_args(self, root: Path, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [
                 sys.executable,
                 str(MATERIALIZER),
                 "--registry",
                 str(root / "references/route-registry.yaml"),
-                "--source",
-                source,
-                "--dry-run",
-                "--offline-ok",
+                *args,
             ],
             cwd=root,
             text=True,
@@ -256,6 +263,142 @@ class RouterTreeValidationTests(unittest.TestCase):
             proc = self.run_validator(root)
             self.assertNotEqual(proc.returncode, 0)
             self.assertIn("required file missing: schemas/route-registry.schema.json", proc.stderr)
+
+    def test_materializer_rejects_write_cache_even_with_dry_run(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            proc = self.run_materializer_args(
+                root,
+                "--source",
+                "promptfoo-promptfoo",
+                "--dry-run",
+                "--write-cache",
+                "--offline-ok",
+            )
+            self.assertEqual(proc.returncode, 2)
+            self.assertEqual(proc.stdout, "")
+            self.assertIn("not implemented", proc.stderr)
+
+    def test_materializer_rejects_non_locator_graph_mode(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            registry["sources"]["promptfoo-promptfoo"]["materialization"]["graph"]["mode"] = "summary_graph"
+            write_registry(root, registry)
+            proc = self.run_materializer(root, "promptfoo-promptfoo")
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("graph.mode must be locator_only", proc.stderr)
+
+    def test_materializer_rejects_non_positive_materialization_limits(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            registry["sources"]["promptfoo-promptfoo"]["materialization"]["max_files"] = 0
+            write_registry(root, registry)
+            proc = self.run_materializer(root, "promptfoo-promptfoo")
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("max_files must be positive integer", proc.stderr)
+
+    def test_dry_run_plans_match_materialization_plan_schema(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            proc = self.run_materializer(root, "promptfoo-promptfoo")
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            plan = json.loads(proc.stdout)
+            schema = json.loads((root / "schemas/materialization-plan.schema.json").read_text(encoding="utf-8"))
+            validator = Draft202012Validator(schema, format_checker=FormatChecker())
+            self.assertEqual(list(validator.iter_errors(plan)), [])
+
+    def test_materialization_plan_schema_rejects_clone_true(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            proc = self.run_materializer(root, "promptfoo-promptfoo")
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            plan = json.loads(proc.stdout)
+            plan["safety"]["clone"] = True
+            schema = json.loads((root / "schemas/materialization-plan.schema.json").read_text(encoding="utf-8"))
+            validator = Draft202012Validator(schema, format_checker=FormatChecker())
+            errors = list(validator.iter_errors(plan))
+            self.assertTrue(errors)
+            self.assertIn("False was expected", errors[0].message)
+
+    def test_anchor_report_schema_accepts_mocked_checker_output(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            report = [
+                {
+                    "source_id": "promptfoo-promptfoo",
+                    "locator": "read_first",
+                    "path": "README.md",
+                    "exists": True,
+                    "checked_ref": "main",
+                    "checked_at": "2026-05-07T00:00:00+00:00",
+                    "resolved_commit": "a" * 40,
+                    "blob_sha": "b" * 40,
+                    "url": "https://raw.githubusercontent.com/promptfoo/promptfoo/main/README.md",
+                    "error": None,
+                    "metadata_error": None,
+                }
+            ]
+            schema = json.loads((root / "schemas/anchor-check-report.schema.json").read_text(encoding="utf-8"))
+            validator = Draft202012Validator(schema, format_checker=FormatChecker())
+            self.assertEqual(list(validator.iter_errors(report)), [])
+
+    def test_upstream_checker_rejects_unsafe_anchor_without_network(self) -> None:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("check_upstream_anchors", UPSTREAM_CHECKER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        registry = {
+            "sources": {
+                "bad-source": {
+                    "repo_url": "https://github.com/owner/repo.git",
+                    "read_first": ["../README.md"],
+                }
+            }
+        }
+        with self.assertRaises(ValueError):
+            module.check_registry(registry, "main", 0.01)
+
+    def test_symlink_outside_generated_dirs_fails(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            target = root / "README.md"
+            link = root / "bad-link"
+            try:
+                link.symlink_to(target)
+            except (NotImplementedError, OSError) as exc:
+                self.skipTest(f"symlink unavailable: {exc}")
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("draft skill must not contain symlink", proc.stderr)
+
+    def test_orphan_category_router_fails(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            (root / "references/category-routers/orphan.md").write_text("# Orphan\n", encoding="utf-8")
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("category router files must match registry routes exactly", proc.stderr)
+
+    def test_orphan_source_card_fails(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            (root / "references/source-cards/orphan-source.md").write_text("# Orphan\n", encoding="utf-8")
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("source-cards files must match sources exactly", proc.stderr)
+
+    def test_missing_source_card_fails(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            (root / "references/source-cards/promptfoo-promptfoo.md").unlink()
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("source card missing", proc.stderr)
 
     def test_upstream_checker_url_encoding_helper(self) -> None:
         import importlib.util

@@ -18,5 +18,6 @@ assignees: ""
 ## Checks
 
 - [ ] Exact raw-file anchors identified
+- [ ] `last_verified.checked_paths` updated when anchors changed
 - [ ] `python validation/check_upstream_anchors.py references/route-registry.yaml --ref main`
 - [ ] `python validation/validate_router_tree.py .`

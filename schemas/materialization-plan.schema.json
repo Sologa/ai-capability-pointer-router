@@ -3,25 +3,45 @@
   "$id": "https://github.com/Sologa/ai-capability-pointer-router/schemas/materialization-plan.schema.json",
   "title": "Dry-Run Materialization Plan",
   "type": "object",
+  "additionalProperties": false,
   "required": [
     "status",
+    "registry",
     "source_id",
     "category",
     "repo_url",
     "mode",
+    "default_ref",
+    "allowed_refs",
+    "pin_policy",
+    "update_policy",
+    "stale_after_hours",
     "paths",
     "graph",
     "read_first",
     "route_index_keys",
-    "safety"
+    "safety",
+    "offline_ok"
   ],
   "properties": {
     "status": {
       "const": "dry_run_plan"
     },
+    "registry": {
+      "type": "string",
+      "minLength": 1
+    },
     "source_id": {
       "type": "string",
       "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "category": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "repo_url": {
+      "type": "string",
+      "pattern": "^https://github\\.com/[^/]+/[^/]+\\.git$"
     },
     "mode": {
       "enum": [
@@ -31,18 +51,135 @@
         "manual_only"
       ]
     },
+    "default_ref": {
+      "const": "main"
+    },
+    "allowed_refs": {
+      "$ref": "#/$defs/allowed_refs"
+    },
+    "pin_policy": {
+      "enum": [
+        "record_resolved_commit",
+        "exact_ref_only"
+      ]
+    },
+    "update_policy": {
+      "enum": [
+        "fetch_latest_on_explicit_use",
+        "no_auto_update",
+        "manual_refresh_only"
+      ]
+    },
+    "stale_after_hours": {
+      "type": "integer",
+      "minimum": 1
+    },
     "paths": {
       "type": "object",
+      "additionalProperties": false,
       "required": [
         "worktree",
         "manifest",
         "manifest_exists",
         "git_state",
-        "route_index"
-      ]
+        "route_index",
+        "graph"
+      ],
+      "properties": {
+        "worktree": {
+          "$ref": "#/$defs/cache_path"
+        },
+        "manifest": {
+          "$ref": "#/$defs/cache_path"
+        },
+        "manifest_exists": {
+          "type": "boolean"
+        },
+        "git_state": {
+          "$ref": "#/$defs/cache_path"
+        },
+        "route_index": {
+          "$ref": "#/$defs/cache_path"
+        },
+        "graph": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^temp_artifact/repo_pointer_router_cache/.+"
+        }
+      }
+    },
+    "graph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "mode",
+        "scope",
+        "max_files",
+        "max_bytes"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "mode": {
+          "const": "locator_only"
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "include",
+            "exclude"
+          ],
+          "properties": {
+            "include": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/locator_path"
+              }
+            },
+            "exclude": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/locator_path"
+              }
+            }
+          }
+        },
+        "max_files": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_bytes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "read_first": {
+      "$ref": "#/$defs/locator_path_list"
+    },
+    "route_index_keys": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*/[a-z][a-z0-9_]*$"
+      },
+      "uniqueItems": true
     },
     "safety": {
       "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "clone",
+        "fetch",
+        "run_package_install",
+        "run_repo_scripts",
+        "run_hooks"
+      ],
       "properties": {
         "clone": {
           "const": false
@@ -60,6 +197,46 @@
           "const": false
         }
       }
+    },
+    "offline_ok": {
+      "type": "boolean"
+    }
+  },
+  "$defs": {
+    "allowed_refs": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "main",
+          "tags",
+          "commit_sha"
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "locator_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+"
+    },
+    "locator_path_list": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/locator_path"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "cache_path": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/locator_path"
+        },
+        {
+          "pattern": "^temp_artifact/repo_pointer_router_cache/.+"
+        }
+      ]
     }
   }
 }

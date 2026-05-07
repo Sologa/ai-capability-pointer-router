@@ -51,6 +51,14 @@ def raw_url(owner: str, repo: str, ref: str, path: str) -> str:
     return f"https://raw.githubusercontent.com/{owner}/{repo}/{quote(ref, safe='')}/{quote(path, safe='/')}"
 
 
+def commit_api_url(owner: str, repo: str, ref: str) -> str:
+    return f"https://api.github.com/repos/{owner}/{repo}/commits/{quote(ref, safe='')}"
+
+
+def contents_api_url(owner: str, repo: str, ref: str, path: str) -> str:
+    return f"https://api.github.com/repos/{owner}/{repo}/contents/{quote(path, safe='/')}?ref={quote(ref, safe='')}"
+
+
 def anchor_exists(url: str, timeout: float) -> tuple[bool, str | None]:
     request = Request(url, method="HEAD")
     try:
@@ -66,6 +74,41 @@ def anchor_exists(url: str, timeout: float) -> tuple[bool, str | None]:
         return False, str(exc)
     except URLError as exc:
         return False, str(exc)
+
+
+def fetch_json(url: str, timeout: float) -> tuple[dict | None, str | None]:
+    request = Request(url, headers={"Accept": "application/vnd.github+json"})
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            data = json.load(response)
+    except (HTTPError, URLError, json.JSONDecodeError) as exc:
+        return None, str(exc)
+    if not isinstance(data, dict):
+        return None, "GitHub API response was not a JSON object"
+    return data, None
+
+
+def resolve_commit(owner: str, repo: str, ref: str, timeout: float) -> tuple[str | None, str | None]:
+    data, error = fetch_json(commit_api_url(owner, repo, ref), timeout)
+    if error:
+        return None, error
+    sha = data.get("sha") if isinstance(data, dict) else None
+    if isinstance(sha, str) and len(sha) == 40:
+        return sha, None
+    return None, "GitHub commit response did not include a 40-character sha"
+
+
+def resolve_blob_sha(owner: str, repo: str, ref: str, path: str, timeout: float) -> tuple[str | None, str | None]:
+    data, error = fetch_json(contents_api_url(owner, repo, ref, path), timeout)
+    if error:
+        return None, error
+    sha = data.get("sha") if isinstance(data, dict) else None
+    content_type = data.get("type") if isinstance(data, dict) else None
+    if content_type != "file":
+        return None, f"GitHub contents response type is not file: {content_type}"
+    if isinstance(sha, str) and len(sha) == 40:
+        return sha, None
+    return None, "GitHub contents response did not include a 40-character sha"
 
 
 def iter_source_anchors(source_id: str, source: dict) -> list[tuple[str, str]]:
@@ -103,11 +146,17 @@ def check_registry(registry: dict, ref: str, timeout: float) -> tuple[list[dict]
         if not isinstance(source, dict):
             continue
         owner, repo = github_slug(source.get("repo_url") or source.get("repo") or "")
+        resolved_commit, commit_error = resolve_commit(owner, repo, ref, timeout)
         for locator, path in iter_source_anchors(source_id, source):
             url = raw_url(owner, repo, ref, path)
             exists, error = anchor_exists(url, timeout)
             if not exists:
                 missing += 1
+            blob_sha = None
+            metadata_error = commit_error
+            if exists:
+                blob_sha, blob_error = resolve_blob_sha(owner, repo, ref, path, timeout)
+                metadata_error = commit_error or blob_error
             results.append(
                 {
                     "source_id": source_id,
@@ -116,8 +165,11 @@ def check_registry(registry: dict, ref: str, timeout: float) -> tuple[list[dict]
                     "exists": exists,
                     "checked_ref": ref,
                     "checked_at": checked_at,
+                    "resolved_commit": resolved_commit,
+                    "blob_sha": blob_sha,
                     "url": url,
                     "error": error,
+                    "metadata_error": metadata_error,
                 }
             )
     return results, missing

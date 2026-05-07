@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Sologa/ai-capability-pointer-router/schemas/graph-report.schema.json",
+  "title": "Locator Graph Build Report Contract",
+  "description": "Contract-only schema for a future graph build report. This repo does not currently generate graph artifacts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "source_id",
+    "resolved_commit",
+    "generated_at",
+    "scope",
+    "counts",
+    "truncated",
+    "warnings"
+  ],
+  "properties": {
+    "source_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "resolved_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "include",
+        "exclude"
+      ],
+      "properties": {
+        "include": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/locator_path"
+          }
+        },
+        "exclude": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/locator_path"
+          }
+        }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "files_seen",
+        "files_indexed",
+        "bytes_indexed"
+      ],
+      "properties": {
+        "files_seen": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "files_indexed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bytes_indexed": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$defs": {
+    "locator_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+"
+    }
+  }
+}

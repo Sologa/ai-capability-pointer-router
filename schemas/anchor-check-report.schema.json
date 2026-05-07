@@ -5,6 +5,7 @@
   "type": "array",
   "items": {
     "type": "object",
+    "additionalProperties": false,
     "required": [
       "source_id",
       "locator",
@@ -12,7 +13,11 @@
       "exists",
       "checked_ref",
       "checked_at",
-      "url"
+      "resolved_commit",
+      "blob_sha",
+      "url",
+      "error",
+      "metadata_error"
     ],
     "properties": {
       "source_id": {
@@ -20,26 +25,50 @@
         "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
       },
       "locator": {
-        "type": "string"
+        "type": "string",
+        "minLength": 1
       },
       "path": {
-        "type": "string"
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+"
       },
       "exists": {
         "type": "boolean"
       },
       "checked_ref": {
-        "type": "string"
+        "type": "string",
+        "minLength": 1
       },
       "checked_at": {
         "type": "string",
         "format": "date-time"
+      },
+      "resolved_commit": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "pattern": "^[0-9a-f]{40}$"
+      },
+      "blob_sha": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "pattern": "^[0-9a-f]{40}$"
       },
       "url": {
         "type": "string",
         "format": "uri"
       },
       "error": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "metadata_error": {
         "type": [
           "string",
           "null"

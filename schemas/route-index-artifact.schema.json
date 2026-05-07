@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Sologa/ai-capability-pointer-router/schemas/route-index-artifact.schema.json",
+  "title": "Route Index Artifact Contract",
+  "description": "Contract-only schema for a future generated route index. This repo currently stores route indexes in the registry/source cards only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "source_id",
+    "repo_url",
+    "resolved_commit",
+    "generated_at",
+    "entries"
+  ],
+  "properties": {
+    "source_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "repo_url": {
+      "type": "string",
+      "pattern": "^https://github\\.com/[^/]+/[^/]+\\.git$"
+    },
+    "resolved_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "anchors"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*/[a-z][a-z0-9_]*$"
+          },
+          "anchors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/anchor"
+            },
+            "minItems": 1
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "kind"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/locator_path"
+        },
+        "kind": {
+          "enum": [
+            "raw_file",
+            "raw_dir",
+            "docs_route",
+            "graph_locator"
+          ]
+        }
+      }
+    },
+    "locator_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+"
+    }
+  }
+}
