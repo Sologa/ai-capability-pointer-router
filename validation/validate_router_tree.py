@@ -279,6 +279,8 @@ def validate_root_files(root: Path, errors: list[str]) -> None:
             errors.append(f"agents/openai.yaml invalid: {exc}")
 
     for path in root.rglob("*"):
+        if ".git" in path.relative_to(root).parts:
+            continue
         require(not path.is_symlink(), f"draft skill must not contain symlink: {path.relative_to(root)}", errors)
         require(not path.name.startswith("._"), f"draft skill must not contain macOS sidecar file: {path.relative_to(root)}", errors)
 
