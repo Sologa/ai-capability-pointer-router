@@ -21,6 +21,14 @@ Source cards, route indexes, manifests, and graph outputs are locators only. The
 
 The registry source of truth is `references/route-registry.yaml`.
 
+## Contract Files
+
+- `schemas/route-registry.schema.json`
+- `schemas/materialization-plan.schema.json`
+- `schemas/anchor-check-report.schema.json`
+
+The Python validator is still the authoritative local check for cross-file closure and safety invariants. The schemas document artifact shapes for review and future tooling.
+
 ## Validate
 
 ```sh

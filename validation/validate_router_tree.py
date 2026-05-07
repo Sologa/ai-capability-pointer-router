@@ -17,6 +17,7 @@ import yaml
 ROUTE_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 SOURCE_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 LOCAL_ROUTE_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 ALLOWED_MODES = {
     "pointer_only",
@@ -63,11 +64,27 @@ REQUIRED_SOURCE_FIELDS = {
     "authority_level",
     "refresh_sensitivity",
     "stale_after_hours",
+    "last_verified",
     "representation",
     "materialization",
     "read_first",
     "do_not_use_for",
 }
+REQUIRED_SCHEMA_FILES = [
+    "schemas/route-registry.schema.json",
+    "schemas/materialization-plan.schema.json",
+    "schemas/anchor-check-report.schema.json",
+]
+REQUIRED_PUBLIC_HEALTH_FILES = [
+    "README.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "CHANGELOG.md",
+    "CODE_OF_CONDUCT.md",
+    ".github/pull_request_template.md",
+    ".github/ISSUE_TEMPLATE/bug_report.md",
+    ".github/ISSUE_TEMPLATE/source_update.md",
+]
 REQUIRED_MATERIALIZATION_FIELDS = {
     "mode",
     "strategy",
@@ -104,6 +121,11 @@ def read_frontmatter(path: Path) -> dict:
         return {}
     data = yaml.safe_load(text[4:end])
     return data if isinstance(data, dict) else {}
+
+
+def load_json(path: Path) -> object:
+    with path.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
 
 
 def rel_exists(root: Path, rel_path: str) -> bool:
@@ -306,6 +328,48 @@ def validate_materialization(source_id: str, source: dict, registry: dict, mater
         require(isinstance(value, int) and value > 0, f"{source_id}: {key} must be positive integer", errors)
 
 
+def source_anchor_paths(source: dict) -> list[str]:
+    paths: list[str] = []
+    for anchor in source.get("read_first") or []:
+        if isinstance(anchor, str):
+            paths.append(anchor)
+    route_index = source.get("route_index") or {}
+    if isinstance(route_index, dict):
+        for anchors in route_index.values():
+            if isinstance(anchors, list):
+                for anchor in anchors:
+                    if isinstance(anchor, str):
+                        paths.append(anchor)
+    seen: set[str] = set()
+    unique: list[str] = []
+    for path in paths:
+        if path in seen:
+            continue
+        seen.add(path)
+        unique.append(path)
+    return unique
+
+
+def validate_last_verified(source_id: str, source: dict, errors: list[str]) -> None:
+    last_verified = source.get("last_verified")
+    require(isinstance(last_verified, dict), f"{source_id}: last_verified must be a mapping", errors)
+    if not isinstance(last_verified, dict):
+        return
+    require(bool(DATE_RE.match(str(last_verified.get("date", "")))), f"{source_id}: last_verified.date must be YYYY-MM-DD", errors)
+    require(last_verified.get("method") == "github_raw_head", f"{source_id}: last_verified.method must be github_raw_head", errors)
+    require(isinstance(last_verified.get("checked_ref"), str) and bool(last_verified.get("checked_ref")), f"{source_id}: last_verified.checked_ref must be non-empty string", errors)
+    checked_paths = last_verified.get("checked_paths")
+    require(isinstance(checked_paths, list) and all(isinstance(item, str) for item in checked_paths), f"{source_id}: last_verified.checked_paths must be a string list", errors)
+    if isinstance(checked_paths, list):
+        expected = set(source_anchor_paths(source))
+        actual = set(checked_paths)
+        require(
+            actual == expected,
+            f"{source_id}: last_verified.checked_paths must match read_first and route_index anchors exactly",
+            errors,
+        )
+
+
 def validate_route_index(source_id: str, source: dict, errors: list[str]) -> None:
     route_index = source.get("route_index")
     if route_index is None:
@@ -362,6 +426,7 @@ def validate_sources(root: Path, registry: dict, errors: list[str]) -> None:
         require(isinstance(read_first, list) and read_first, f"{source_id}: read_first must be a non-empty list", errors)
         do_not_use_for = source.get("do_not_use_for")
         require(isinstance(do_not_use_for, list), f"{source_id}: do_not_use_for must be a list", errors)
+        validate_last_verified(source_id, source, errors)
 
         materialization = source.get("materialization")
         require(isinstance(materialization, dict), f"{source_id}: materialization must be a mapping", errors)
@@ -377,6 +442,8 @@ def validate_sources(root: Path, registry: dict, errors: list[str]) -> None:
 def validate_root_files(root: Path, errors: list[str]) -> None:
     required_files = [
         "SKILL.md",
+        *REQUIRED_PUBLIC_HEALTH_FILES,
+        *REQUIRED_SCHEMA_FILES,
         "agents/openai.yaml",
         "references/route-registry.yaml",
         "references/runtime-protocol.md",
@@ -388,6 +455,16 @@ def validate_root_files(root: Path, errors: list[str]) -> None:
     ]
     for rel_path in required_files:
         require((root / rel_path).is_file(), f"required file missing: {rel_path}", errors)
+
+    for rel_path in REQUIRED_SCHEMA_FILES:
+        schema_path = root / rel_path
+        if schema_path.is_file():
+            try:
+                data = load_json(schema_path)
+                require(isinstance(data, dict), f"{rel_path}: schema root must be a JSON object", errors)
+                require(isinstance(data, dict) and data.get("$schema"), f"{rel_path}: schema must declare $schema", errors)
+            except (OSError, json.JSONDecodeError) as exc:
+                errors.append(f"{rel_path}: invalid JSON schema: {exc}")
 
     skill_text = (root / "SKILL.md").read_text(encoding="utf-8") if (root / "SKILL.md").is_file() else ""
     require(

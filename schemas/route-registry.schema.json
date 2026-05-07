@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Sologa/ai-capability-pointer-router/schemas/route-registry.schema.json",
+  "title": "AI Capability Pointer Router Registry",
+  "type": "object",
+  "required": [
+    "version",
+    "status",
+    "materialization_defaults",
+    "routes",
+    "sources"
+  ],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "status": {
+      "const": "staged_draft"
+    },
+    "route_index_key_rule": {
+      "const": "<source_id>/<local_route>"
+    },
+    "materialization_defaults": {
+      "type": "object",
+      "required": [
+        "cache_root",
+        "script",
+        "host_allowlist",
+        "allowed_modes",
+        "graph_semantics",
+        "manifest_index",
+        "safety"
+      ]
+    },
+    "routes": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "route_id",
+          "router_doc",
+          "sources"
+        ],
+        "properties": {
+          "route_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "router_doc": {
+            "type": "string"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            },
+            "minItems": 1
+          }
+        }
+      }
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "source_id",
+          "repo",
+          "repo_url",
+          "category",
+          "source_card_path",
+          "authority_level",
+          "refresh_sensitivity",
+          "stale_after_hours",
+          "last_verified",
+          "representation",
+          "materialization",
+          "read_first",
+          "do_not_use_for"
+        ]
+      }
+    }
+  }
+}

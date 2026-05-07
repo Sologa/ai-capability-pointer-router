@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Sologa/ai-capability-pointer-router/schemas/materialization-plan.schema.json",
+  "title": "Dry-Run Materialization Plan",
+  "type": "object",
+  "required": [
+    "status",
+    "source_id",
+    "category",
+    "repo_url",
+    "mode",
+    "paths",
+    "graph",
+    "read_first",
+    "route_index_keys",
+    "safety"
+  ],
+  "properties": {
+    "status": {
+      "const": "dry_run_plan"
+    },
+    "source_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "mode": {
+      "enum": [
+        "pointer_only",
+        "materialize_on_first_use",
+        "materialize_and_graph_on_first_use",
+        "manual_only"
+      ]
+    },
+    "paths": {
+      "type": "object",
+      "required": [
+        "worktree",
+        "manifest",
+        "manifest_exists",
+        "git_state",
+        "route_index"
+      ]
+    },
+    "safety": {
+      "type": "object",
+      "properties": {
+        "clone": {
+          "const": false
+        },
+        "fetch": {
+          "const": false
+        },
+        "run_package_install": {
+          "const": false
+        },
+        "run_repo_scripts": {
+          "const": false
+        },
+        "run_hooks": {
+          "const": false
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Sologa/ai-capability-pointer-router/schemas/anchor-check-report.schema.json",
+  "title": "Upstream Anchor Check Report",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "source_id",
+      "locator",
+      "path",
+      "exists",
+      "checked_ref",
+      "checked_at",
+      "url"
+    ],
+    "properties": {
+      "source_id": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+      },
+      "locator": {
+        "type": "string"
+      },
+      "path": {
+        "type": "string"
+      },
+      "exists": {
+        "type": "boolean"
+      },
+      "checked_ref": {
+        "type": "string"
+      },
+      "checked_at": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "url": {
+        "type": "string",
+        "format": "uri"
+      },
+      "error": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    }
+  }
+}

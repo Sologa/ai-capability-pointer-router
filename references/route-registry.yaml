@@ -76,6 +76,16 @@ sources:
     authority_level: "canonical_spec_anchor"
     refresh_sensitivity: "high"
     stale_after_hours: 48
+    last_verified:
+      date: "2026-05-07"
+      method: "github_raw_head"
+      checked_ref: "main"
+      checked_paths:
+        - "README.md"
+        - "docs/specification.mdx"
+        - "docs/client-implementation/adding-skills-support.mdx"
+        - "docs/skill-creation/best-practices.mdx"
+        - "skills-ref/README.md"
     representation: "materialized_source_card_plus_on_demand_pointer"
     materialization:
       mode: "materialize_on_first_use"
@@ -123,6 +133,16 @@ sources:
     authority_level: "official_codex_skill_catalog"
     refresh_sensitivity: "high"
     stale_after_hours: 48
+    last_verified:
+      date: "2026-05-07"
+      method: "github_raw_head"
+      checked_ref: "main"
+      checked_paths:
+        - "README.md"
+        - "skills/.system/skill-creator/SKILL.md"
+        - "skills/.system/skill-installer/SKILL.md"
+        - "skills/.system/skill-creator/references/openai_yaml.md"
+        - "skills/.curated/openai-docs/SKILL.md"
     representation: "materialized_source_card_plus_on_demand_pointer"
     materialization:
       mode: "materialize_on_first_use"
@@ -171,6 +191,20 @@ sources:
     authority_level: "cross_agent_skill_cli"
     refresh_sensitivity: "high"
     stale_after_hours: 48
+    last_verified:
+      date: "2026-05-07"
+      method: "github_raw_head"
+      checked_ref: "main"
+      checked_paths:
+        - "README.md"
+        - "AGENTS.md"
+        - "skills/find-skills/SKILL.md"
+        - "src/cli.ts"
+        - "src/add.ts"
+        - "src/installer.ts"
+        - "src/source-parser.ts"
+        - "src/skill-lock.ts"
+        - "src/skills.ts"
     representation: "materialized_source_card_plus_on_demand_pointer"
     materialization:
       mode: "materialize_on_first_use"
@@ -226,6 +260,23 @@ sources:
     authority_level: "eval_redteam_framework"
     refresh_sensitivity: "very_high"
     stale_after_hours: 24
+    last_verified:
+      date: "2026-05-07"
+      method: "github_raw_head"
+      checked_ref: "main"
+      checked_paths:
+        - "README.md"
+        - "plugins/promptfoo/skills/promptfoo-evals/SKILL.md"
+        - "plugins/promptfoo/skills/promptfoo-redteam-setup/SKILL.md"
+        - "plugins/promptfoo/skills/promptfoo-redteam-run/SKILL.md"
+        - "plugins/promptfoo/skills/promptfoo-provider-setup/SKILL.md"
+        - "site/docs/getting-started.md"
+        - "site/docs/configuration/guide.md"
+        - "site/docs/red-team/index.md"
+        - "site/docs/providers/index.md"
+        - "site/docs/usage/command-line.md"
+        - "site/docs/integrations/ci-cd.md"
+        - "site/docs/integrations/github-action.md"
     representation: "materialized_source_card_plus_scoped_graph_index"
     materialization:
       mode: "materialize_and_graph_on_first_use"

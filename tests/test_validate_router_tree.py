@@ -239,6 +239,24 @@ class RouterTreeValidationTests(unittest.TestCase):
             self.assertNotEqual(proc.returncode, 0)
             self.assertIn("source.repo and source.repo_url must point to the same GitHub repo", proc.stderr)
 
+    def test_validator_rejects_stale_last_verified_paths(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            registry["sources"]["promptfoo-promptfoo"]["last_verified"]["checked_paths"] = ["README.md"]
+            write_registry(root, registry)
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("last_verified.checked_paths must match", proc.stderr)
+
+    def test_validator_requires_schema_files(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            (root / "schemas/route-registry.schema.json").unlink()
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("required file missing: schemas/route-registry.schema.json", proc.stderr)
+
     def test_upstream_checker_url_encoding_helper(self) -> None:
         import importlib.util
 
