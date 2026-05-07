@@ -12,7 +12,7 @@ This repo defines a three-layer lazy pointer tree for AI capability sources:
 2. A category router selects a source card or materialization decision.
 3. A source card selects anchors, route-index keys, manifests, or graph locators.
 
-Source cards, route indexes, manifests, and graph outputs are locators only. They are not evidence for factual claims. Current behavior claims must be checked against live upstream raw files or a pinned materialized worktree.
+Source cards, route indexes, manifests, and graph outputs are locators only. They are not evidence for factual claims. Current behavior claims must be checked against live upstream raw files or a locally refreshed materialized worktree.
 
 ## Current Sources
 
@@ -33,12 +33,12 @@ The registry source of truth is `references/route-registry.yaml`.
 - `schemas/locator-graph.schema.json`
 - `schemas/graph-report.schema.json`
 
-The Python validator is still the authoritative local check for cross-file closure and safety invariants. It also applies the registry and dry-run plan schemas as a second validation layer. The graph/index schemas are contract-only documents for future reviewed tooling; they do not mean graph artifacts are currently generated or published.
+The Python validator is still the authoritative local check for cross-file closure and safety invariants. It also applies the registry and dry-run plan schemas as a second validation layer. The graph/index schemas describe local-only artifacts under git-ignored `temp_artifact/`; committed repo contents still do not include generated worktrees or graph outputs.
 
 Design boundary references:
 
-- `references/graph-scope-policy.md` explains current graph scope limits and why no graph output exists.
-- `references/materialization-writer-design.md` defines the minimum review contract before any future clone/fetch/checkout/write-cache implementation.
+- `references/graph-scope-policy.md` explains current graph scope limits and the semantic graphify boundary.
+- `references/materialization-writer-design.md` defines the local refresh contract and the boundary around the still-disabled `--write-cache` planner mode.
 
 ## Validate
 
@@ -50,9 +50,36 @@ python -m unittest discover -s tests
 
 Optional: run your local Codex or Agent Skills shape validator if it is installed. The portable validator for this repo is `python validation/validate_router_tree.py .`.
 
+## Invocation Local Refresh
+
+When this skill is invoked, the first operational step is to refresh all registered repos locally:
+
+```sh
+python scripts/local_refresh_repos.py \
+  --registry references/route-registry.yaml \
+  --all
+```
+
+This command clones missing repos, fetches/prunes `origin main`, resets each local worktree to `origin/main`, writes local-only manifests and route indexes, and rebuilds graphify outputs that can run without semantic subagents. Outputs stay under:
+
+```text
+temp_artifact/repo_pointer_router_cache/repos/<source_id>/
+  materialization.json
+  git_state.json
+  route_index.json
+  worktree/
+    graphify-out/
+```
+
+`temp_artifact/` and `graphify-out/` are git-ignored. These local clones and graph outputs must not be committed or pushed.
+
+After refresh, agents should read selected raw files from `temp_artifact/repo_pointer_router_cache/repos/<source_id>/worktree/` before falling back to live upstream raw files. If a refresh fails, answer from live upstream only when explicitly checked, and state the local refresh failure.
+
+Graphify boundary: the local refresh script rebuilds a deterministic graphify locator graph through the installed graphify Python package. Full semantic graphify for docs/papers/images still requires `/graphify` skill execution with subagents or a future non-agent graphify CLI; the script writes `graphify-out/needs_semantic_graphify` when that semantic pass is still needed.
+
 ## Dry-Run Materialization Planner
 
-The current planner is read-only. It prints the declared manifest, worktree, route-index, and graph plan, but it does not clone, fetch, install packages, run hooks, run repo scripts, or write cache.
+The planner remains read-only. It prints the declared manifest, worktree, route-index, and graph plan, but it does not clone, fetch, install packages, run hooks, run repo scripts, or write cache. Use `scripts/local_refresh_repos.py --all` for the accepted local-only refresh path.
 
 ```sh
 python scripts/materialize_repo_pointer.py \
@@ -62,9 +89,7 @@ python scripts/materialize_repo_pointer.py \
   --offline-ok
 ```
 
-`--write-cache` is intentionally rejected until clone/fetch/index/write-cache behavior has a separate reviewed implementation.
-The combined `--dry-run --write-cache` form is also rejected; any write-cache request is outside this staged draft.
-Registry materialization modes are declarative only while `implementation_status: dry_run_only` is set.
+`--write-cache` is intentionally rejected on the dry-run planner. The combined `--dry-run --write-cache` form is also rejected. Registry sources use `implementation_status: local_refresh_enabled`, meaning local refresh is implemented by `scripts/local_refresh_repos.py`, not by the planner's disabled write-cache mode.
 
 ## Optional Upstream Anchor Check
 
@@ -93,8 +118,9 @@ This command performs network reads against GitHub raw URLs and, in JSON mode, a
 4. Add source-card frontmatter for identity, freshness, materialization mode, implementation status, graph flag, and `do_not_use_for`; it must mirror the registry.
 5. Keep all route-index keys namespaced as `<source_id>/<local_route>`.
 6. Use exact raw-file anchors when possible; if a docs route has no single raw file, point to the concrete leaf pages actually needed.
-7. Run dry-run materialization for the new source and then run the validator and tests.
+7. Add graph scope for the local refresh path.
+8. Run dry-run materialization for the new source, run local refresh for that source, then run the validator and tests.
 
 ## Publication Boundaries
 
-This repo is licensed under Apache-2.0 for reuse, review, and iteration. It is still not a runtime-installed skill by default. Graph artifacts are intentionally absent; graph semantics are currently locator-only contracts, not a built graph release.
+This repo is licensed under Apache-2.0 for reuse, review, and iteration. It is still not a runtime-installed skill by default. Local worktrees and graph outputs are intentionally absent from commits; graph semantics are locator-only and do not imply a complete semantic graph release.

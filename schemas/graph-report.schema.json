@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Sologa/ai-capability-pointer-router/schemas/graph-report.schema.json",
   "title": "Locator Graph Build Report Contract",
-  "description": "Contract-only schema for a future graph build report. This repo does not currently generate graph artifacts.",
+  "description": "Schema contract for local-only graph build reports under git-ignored temp_artifact. Reports are locators/status artifacts, not evidence.",
   "type": "object",
   "additionalProperties": false,
   "required": [

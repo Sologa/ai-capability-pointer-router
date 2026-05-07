@@ -18,7 +18,7 @@ sources:
 
 ## Materialization Decision
 
-預設不要 materialize。只有以下情境才回傳 materialization decision；目前 staged draft 只允許 `scripts/materialize_repo_pointer.py --dry-run` 做 planning，不會 clone/fetch/write cache：
+skill invoke 時已由 root 執行 `scripts/local_refresh_repos.py --all` 來 clone/fetch 最新 local cache。只有以下情境才回傳 materialization decision 或讀取 local worktree raw files；`scripts/materialize_repo_pointer.py` 仍只做 dry-run planning，不能 `--write-cache`：
 
 - 使用者要求 current/latest repo behavior。
 - 需要比較多個 anchor file 的實作細節。

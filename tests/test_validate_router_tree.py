@@ -16,6 +16,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 REPO_ROOT = Path(__file__).resolve().parents[1]
 VALIDATOR = REPO_ROOT / "validation" / "validate_router_tree.py"
 MATERIALIZER = REPO_ROOT / "scripts" / "materialize_repo_pointer.py"
+LOCAL_REFRESH = REPO_ROOT / "scripts" / "local_refresh_repos.py"
 UPSTREAM_CHECKER = REPO_ROOT / "validation" / "check_upstream_anchors.py"
 
 
@@ -106,6 +107,16 @@ class RouterTreeValidationTests(unittest.TestCase):
             capture_output=True,
             check=False,
         )
+
+    def import_local_refresh(self):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("local_refresh_repos", LOCAL_REFRESH)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        return module
 
     def test_current_tree_is_valid(self) -> None:
         with copy_repo() as temp:
@@ -247,6 +258,7 @@ class RouterTreeValidationTests(unittest.TestCase):
                 generated_dir = root / rel
                 generated_dir.mkdir(parents=True)
                 (generated_dir / "._generated").write_text("sidecar", encoding="utf-8")
+                (root / f"._{Path(rel).name}").write_text("directory sidecar", encoding="utf-8")
             proc = self.run_validator(root)
             self.assertEqual(proc.returncode, 0, proc.stderr)
 
@@ -332,6 +344,14 @@ class RouterTreeValidationTests(unittest.TestCase):
             self.assertNotEqual(proc.returncode, 0)
             self.assertIn("required file missing: schemas/route-registry.schema.json", proc.stderr)
 
+    def test_validator_requires_local_refresh_script(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            (root / "scripts/local_refresh_repos.py").unlink()
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("required file missing: scripts/local_refresh_repos.py", proc.stderr)
+
     def test_registry_schema_violation_fails(self) -> None:
         with copy_repo() as temp:
             root = Path(temp) / "skill"
@@ -388,7 +408,7 @@ class RouterTreeValidationTests(unittest.TestCase):
             self.assertNotEqual(proc.returncode, 0)
             self.assertIn("graph.mode must be locator_only", proc.stderr)
 
-    def test_materializer_rejects_non_dry_run_implementation_status(self) -> None:
+    def test_materializer_rejects_unsupported_implementation_status(self) -> None:
         with copy_repo() as temp:
             root = Path(temp) / "skill"
             registry = load_registry(root)
@@ -398,7 +418,7 @@ class RouterTreeValidationTests(unittest.TestCase):
             write_registry(root, registry)
             proc = self.run_materializer(root, "promptfoo-promptfoo")
             self.assertNotEqual(proc.returncode, 0)
-            self.assertIn("implementation_status must be dry_run_only", proc.stderr)
+            self.assertIn("implementation_status must be local_refresh_enabled", proc.stderr)
 
     def test_materializer_rejects_non_positive_materialization_limits(self) -> None:
         with copy_repo() as temp:
@@ -410,12 +430,34 @@ class RouterTreeValidationTests(unittest.TestCase):
             self.assertNotEqual(proc.returncode, 0)
             self.assertIn("max_files must be positive integer", proc.stderr)
 
+    def test_local_refresh_rejects_non_locator_graph_mode_before_network(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            registry["sources"]["promptfoo-promptfoo"]["materialization"]["graph"]["mode"] = "summary_graph"
+            module = self.import_local_refresh()
+            with self.assertRaisesRegex(module.RefreshError, "graph.mode must be locator_only"):
+                module.refresh_source(root, registry, "promptfoo-promptfoo")
+
+    def test_local_refresh_rejects_non_positive_limits_before_network(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            registry["sources"]["promptfoo-promptfoo"]["materialization"]["max_bytes"] = 0
+            module = self.import_local_refresh()
+            with self.assertRaisesRegex(module.RefreshError, "max_bytes must be a positive integer"):
+                module.refresh_source(root, registry, "promptfoo-promptfoo")
+
     def test_dry_run_plans_match_materialization_plan_schema(self) -> None:
         with copy_repo() as temp:
             root = Path(temp) / "skill"
             proc = self.run_materializer(root, "promptfoo-promptfoo")
             self.assertEqual(proc.returncode, 0, proc.stderr)
             plan = json.loads(proc.stdout)
+            self.assertEqual(
+                plan["paths"]["graph"],
+                "temp_artifact/repo_pointer_router_cache/repos/promptfoo-promptfoo/worktree/graphify-out/graph.json",
+            )
             schema = json.loads((root / "schemas/materialization-plan.schema.json").read_text(encoding="utf-8"))
             validator = Draft202012Validator(schema, format_checker=FormatChecker())
             self.assertEqual(list(validator.iter_errors(plan)), [])
@@ -432,6 +474,40 @@ class RouterTreeValidationTests(unittest.TestCase):
             errors = list(validator.iter_errors(plan))
             self.assertTrue(errors)
             self.assertIn("False was expected", errors[0].message)
+
+    def test_local_manifest_schema_accepts_local_refresh_manifest_shape(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            manifest = {
+                "source_id": "promptfoo-promptfoo",
+                "repo_url": "https://github.com/promptfoo/promptfoo.git",
+                "requested_ref": "main",
+                "resolved_commit": "a" * 40,
+                "materialized_at": "2026-05-07T00:00:00+00:00",
+                "worktree_path": "temp_artifact/repo_pointer_router_cache/repos/promptfoo-promptfoo/worktree",
+                "safety": {
+                    "run_package_install": False,
+                    "run_repo_scripts": False,
+                    "run_hooks": False,
+                    "follow_external_symlinks": False,
+                    "submodules_recursive": False,
+                },
+                "locator_only": True,
+            }
+            schema = json.loads((root / "schemas/materialization-manifest.schema.json").read_text(encoding="utf-8"))
+            validator = Draft202012Validator(schema, format_checker=FormatChecker())
+            self.assertEqual(list(validator.iter_errors(manifest)), [])
+
+    def test_route_index_artifact_schema_accepts_local_refresh_artifact_shape(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            source = registry["sources"]["promptfoo-promptfoo"]
+            module = self.import_local_refresh()
+            artifact = module.build_route_index_artifact("promptfoo-promptfoo", source, "a" * 40)
+            schema = json.loads((root / "schemas/route-index-artifact.schema.json").read_text(encoding="utf-8"))
+            validator = Draft202012Validator(schema, format_checker=FormatChecker())
+            self.assertEqual(list(validator.iter_errors(artifact)), [])
 
     def test_anchor_report_schema_accepts_mocked_checker_output(self) -> None:
         with copy_repo() as temp:

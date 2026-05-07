@@ -7,8 +7,8 @@ authority_level: official_codex_skill_catalog
 refresh_sensitivity: high
 stale_after_hours: 48
 materialization_mode: materialize_on_first_use
-implementation_status: dry_run_only
-graph_enabled: false
+implementation_status: local_refresh_enabled
+graph_enabled: true
 do_not_use_for:
   - sole_current_openai_product_authority
   - general_cross_agent_installer
@@ -63,6 +63,8 @@ do_not_use_for:
 
 ## Materialization
 
-使用 `materialize_on_first_use`。這是 declarative only；current implementation 只做 dry-run planning，不 clone、fetch、checkout 或 write cache。graph 關閉。需要 current example path、官方 skill pattern 或多檔比較時才 materialize。
+使用 `materialize_on_first_use`。每次本 skill 被 invoke 時，先用 `scripts/local_refresh_repos.py --all` 將本 repo clone/refresh 到本地 git-ignored cache，並重建可自動化的 graphify locator graph / semantic-needed marker。需要 current example path、官方 skill pattern 或多檔比較時，優先讀本地 worktree 對應 raw files；OpenAI 產品 current behavior 仍需搭配 official docs。
 
 Manifest locator: `temp_artifact/repo_pointer_router_cache/repos/openai-skills/materialization.json`
+Local worktree: `temp_artifact/repo_pointer_router_cache/repos/openai-skills/worktree`
+Local graphify output: `temp_artifact/repo_pointer_router_cache/repos/openai-skills/worktree/graphify-out/`

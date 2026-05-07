@@ -17,11 +17,19 @@
 
 可接受 evidence 必須來自實際 source：
 
-- pinned worktree raw file
+- local refreshed worktree raw file with manifest commit
 - live GitHub raw/blob source
 - official product documentation
 - released package documentation
 - 使用者提供的檔案內容
+
+Local refreshed worktree path pattern:
+
+```text
+temp_artifact/repo_pointer_router_cache/repos/<source_id>/worktree/<raw_path>
+```
+
+`materialization.json`、`git_state.json`、`route_index.json`、`graphify-out/graph.json`、`GRAPH_REPORT.md` 仍是 locators/status artifacts；它們不能單獨支撐 factual claim。factual claim 仍要讀 worktree 裡的 raw file 或 live upstream raw file。
 
 ## 回答時要標記
 

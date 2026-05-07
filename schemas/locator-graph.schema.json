@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Sologa/ai-capability-pointer-router/schemas/locator-graph.schema.json",
   "title": "Locator Graph Contract",
-  "description": "Contract-only schema for future graph output. Graph nodes are locators only and are not factual evidence.",
+  "description": "Schema contract for local-only graph output under git-ignored temp_artifact. Graph nodes are locators only and are not factual evidence.",
   "type": "object",
   "additionalProperties": false,
   "required": [

@@ -1,18 +1,18 @@
 # Materialization Writer Design
 
-This repository currently has no clone/fetch/checkout/write-cache implementation. `scripts/materialize_repo_pointer.py` is a dry-run planner, and `--write-cache` is intentionally rejected.
+This repository has a local-only clone/fetch/checkout refresh path in `scripts/local_refresh_repos.py`. `scripts/materialize_repo_pointer.py` remains a dry-run planner, and its `--write-cache` mode is intentionally rejected.
 
-This document is the minimum design contract for a future reviewed writer. It does not authorize the current staged draft to write cache.
+This document is the minimum design contract for local refresh and any future planner write-cache mode. It authorizes only git-ignored local outputs under `temp_artifact/repo_pointer_router_cache/`, not committed generated artifacts.
 
 ## Required Threat Model
 
-A future writer must assume upstream repositories can contain unsafe paths, symlinks, hooks, submodules, package scripts, large files, generated directories, stale examples, or files that look authoritative but are not evidence for the user's question.
+The local refresh path must assume upstream repositories can contain unsafe paths, symlinks, hooks, submodules, package scripts, large files, generated directories, stale examples, or files that look authoritative but are not evidence for the user's question.
 
 The writer must never execute upstream code.
 
 ## Minimum Writer Behavior
 
-A reviewed writer must support explicit source selection:
+The reviewed local refresh script supports explicit source selection:
 
 - `--source <source_id>` for one source;
 - `--all` only after the single-source path is tested.
@@ -36,13 +36,13 @@ For each materialized source, the writer must produce locator-only artifacts:
 - `materialization.json`, validated against `schemas/materialization-manifest.schema.json`;
 - `git_state.json`, recording requested ref, resolved commit, checkout status, and safety flags;
 - `route_index.json`, validated against `schemas/route-index-artifact.schema.json`;
-- graph artifacts only when the source graph contract is enabled and reviewed.
+- graph artifacts only under the local worktree `graphify-out/`, never committed.
 
 These artifacts locate raw files. They are not evidence for factual claims.
 
 ## Required Validation
 
-Before enabling `--write-cache`, add validator coverage for:
+Before extending local refresh or enabling planner `--write-cache`, add validator coverage for:
 
 - safe cache root and safe joined paths;
 - resolved commit format;

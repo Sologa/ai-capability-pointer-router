@@ -118,6 +118,7 @@
       "required": [
         "cache_root",
         "script",
+        "local_refresh",
         "host_allowlist",
         "allowed_modes",
         "default_ref",
@@ -135,6 +136,9 @@
         },
         "script": {
           "const": "scripts/materialize_repo_pointer.py"
+        },
+        "local_refresh": {
+          "$ref": "#/$defs/local_refresh_contract"
         },
         "host_allowlist": {
           "type": "array",
@@ -211,6 +215,51 @@
         },
         "safety": {
           "$ref": "#/$defs/safety_policy"
+        }
+      }
+    },
+    "local_refresh_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "script",
+        "invocation_policy",
+        "source_scope",
+        "artifact_policy",
+        "graphify_policy"
+      ],
+      "properties": {
+        "enabled": {
+          "const": true
+        },
+        "script": {
+          "const": "scripts/local_refresh_repos.py"
+        },
+        "invocation_policy": {
+          "const": "refresh_all_on_skill_invocation"
+        },
+        "source_scope": {
+          "const": "all_registry_sources"
+        },
+        "artifact_policy": {
+          "const": "local_only_gitignored"
+        },
+        "graphify_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "deterministic_locator_graph",
+            "semantic_graphify"
+          ],
+          "properties": {
+            "deterministic_locator_graph": {
+              "const": true
+            },
+            "semantic_graphify": {
+              "const": "requires_graphify_skill_or_future_non_agent_cli"
+            }
+          }
         }
       }
     },
@@ -427,7 +476,7 @@
           "const": "git_clone_fetch_checkout"
         },
         "implementation_status": {
-          "const": "dry_run_only"
+          "const": "local_refresh_enabled"
         },
         "repo_url": {
           "$ref": "#/$defs/repo_clone_url"

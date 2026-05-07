@@ -7,7 +7,7 @@ authority_level: eval_redteam_framework
 refresh_sensitivity: very_high
 stale_after_hours: 24
 materialization_mode: materialize_and_graph_on_first_use
-implementation_status: dry_run_only
+implementation_status: local_refresh_enabled
 graph_enabled: true
 do_not_use_for:
   - production_observability_without_trace_system
@@ -70,6 +70,8 @@ do_not_use_for:
 
 ## Materialization
 
-使用 `materialize_and_graph_on_first_use`。這是 declarative only；current implementation 只做 dry-run planning，不 clone、fetch、checkout、write cache 或 graphify。graph scope 僅限 `site/docs`、`examples`、`plugins/promptfoo/skills`，且 graph 仍是 locator only。
+使用 `materialize_and_graph_on_first_use`。每次本 skill 被 invoke 時，先用 `scripts/local_refresh_repos.py --all` 將本 repo clone/refresh 到本地 git-ignored cache，並重建可自動化的 graphify locator graph / semantic-needed marker。graph scope 僅限 `site/docs`、`examples`、`plugins/promptfoo/skills`，且 graph 仍是 locator only。需要 eval/redteam/provider/CI current behavior 時，優先讀本地 worktree 的 raw files 和 `graphify-out/` locators。
 
 Manifest locator: `temp_artifact/repo_pointer_router_cache/repos/promptfoo-promptfoo/materialization.json`
+Local worktree: `temp_artifact/repo_pointer_router_cache/repos/promptfoo-promptfoo/worktree`
+Local graphify output: `temp_artifact/repo_pointer_router_cache/repos/promptfoo-promptfoo/worktree/graphify-out/`

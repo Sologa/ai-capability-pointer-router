@@ -14,7 +14,7 @@ sources:
 
 ## Materialization Decision
 
-Promptfoo 是大型且活躍的 monorepo。只要問題涉及 current CLI behavior、provider options、redteam command、CI integration、config schema 或跨 docs/code 證據，本 router 只回傳 materialization decision。第三層 `promptfoo-promptfoo` source card 才能選 route index / anchor；raw repo file 仍只能在最後 evidence 步驟打開。
+Promptfoo 是大型且活躍的 monorepo。skill invoke 時 root 已先執行 local refresh。只要問題涉及 current CLI behavior、provider options、redteam command、CI integration、config schema 或跨 docs/code 證據，本 router 只回傳 materialization decision。第三層 `promptfoo-promptfoo` source card 才能選 route index / anchor / local worktree；raw repo file 仍只能在最後 evidence 步驟打開。
 
 ## Evidence Boundary
 

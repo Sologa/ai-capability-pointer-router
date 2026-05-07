@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Sologa/ai-capability-pointer-router/schemas/route-index-artifact.schema.json",
   "title": "Route Index Artifact Contract",
-  "description": "Contract-only schema for a future generated route index. This repo currently stores route indexes in the registry/source cards only.",
+  "description": "Schema for local-only generated route-index artifacts under git-ignored temp_artifact. Route indexes are locators, not evidence by themselves.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -10,6 +10,7 @@
     "repo_url",
     "resolved_commit",
     "generated_at",
+    "locator_only",
     "entries"
   ],
   "properties": {
@@ -28,6 +29,9 @@
     "generated_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "locator_only": {
+      "const": true
     },
     "entries": {
       "type": "array",
@@ -60,7 +64,11 @@
       "additionalProperties": false,
       "required": [
         "path",
-        "kind"
+        "kind",
+        "source_id",
+        "repo_url",
+        "commit",
+        "locator_only"
       ],
       "properties": {
         "path": {
@@ -73,6 +81,21 @@
             "docs_route",
             "graph_locator"
           ]
+        },
+        "source_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "repo_url": {
+          "type": "string",
+          "pattern": "^https://github\\.com/[^/]+/[^/]+\\.git$"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "locator_only": {
+          "const": true
         }
       }
     },

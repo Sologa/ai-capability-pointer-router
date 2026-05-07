@@ -1,29 +1,30 @@
 # Graph Scope Policy
 
-Graph artifacts are future locator artifacts. They are not present in this staged draft, and they must not be treated as evidence for upstream behavior.
+Graph artifacts are local-only locator artifacts. They are generated under git-ignored `temp_artifact/` by the invocation refresh path, are not published in the repository, and must not be treated as evidence for upstream behavior.
 
 ## Current Status
 
-- No graph builder is implemented.
-- No graphify command is run by this repository.
-- No generated graph JSON, graph report, scope expansion, or coverage report is published.
-- `schemas/locator-graph.schema.json` and `schemas/graph-report.schema.json` are contract-only documents for future reviewed tooling.
+- `scripts/local_refresh_repos.py` refreshes each registered repo and writes worktree-local `graphify-out/` status/artifacts.
+- Deterministic graphify locator graph rebuild is automated within the declared scope and budget.
+- Docs/papers/images semantic graphify is not context-free in the currently installed graphify package; those files require `/graphify` skill / subagents or a future non-agent graphify CLI.
+- No generated graph JSON, graph report, scope expansion, or coverage report is committed or published.
+- `schemas/locator-graph.schema.json` and `schemas/graph-report.schema.json` are local artifact contracts.
 
 ## Promptfoo Scope
 
-`promptfoo-promptfoo` is the only current source with `graph.enabled: true`.
+All current sources have `graph.enabled: true` for local invocation refresh. This does not mean every source has a complete semantic graph.
 
-Its declared future graph scope is limited to:
+`promptfoo-promptfoo` has the broadest declared scope:
 
 - `site/docs`
 - `examples`
 - `plugins/promptfoo/skills`
 
-This scope is suitable only for locating documentation, examples, and Promptfoo-bundled skill files. It is not sufficient for current CLI implementation behavior, provider internals, parser behavior, command behavior, or runtime execution claims. For those questions, read live upstream raw files or a pinned materialized worktree.
+This scope is suitable only for locating documentation, examples, and Promptfoo-bundled skill files. It is not sufficient for current CLI implementation behavior, provider internals, parser behavior, command behavior, or runtime execution claims. For those questions, read live upstream raw files or a local refreshed worktree raw file.
 
 ## Future Graph Requirements
 
-A future graph builder must:
+Any graph builder or refresh script must:
 
 - operate only on a pinned materialized worktree;
 - record the resolved commit used for graph construction;

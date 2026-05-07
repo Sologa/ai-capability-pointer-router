@@ -183,6 +183,10 @@ def require(condition: bool, message: str, errors: list[str]) -> None:
         errors.append(message)
 
 
+def is_generated_dir_sidecar(path: Path) -> bool:
+    return path.name.startswith("._") and path.name[2:] in SKIP_WALK_DIRS
+
+
 def validate_routes(root: Path, registry: dict, errors: list[str]) -> None:
     routes = registry.get("routes")
     sources = registry.get("sources")
@@ -332,6 +336,43 @@ def validate_materialization_defaults(registry: dict, errors: list[str]) -> None
         return
     validate_cache_path("defaults", "cache_root", defaults.get("cache_root"), errors, allow_root=True)
     validate_cache_path("defaults", "manifest_index", defaults.get("manifest_index"), errors)
+    local_refresh = defaults.get("local_refresh")
+    require(isinstance(local_refresh, dict), "materialization_defaults.local_refresh must be a mapping", errors)
+    if isinstance(local_refresh, dict):
+        require(local_refresh.get("enabled") is True, "local_refresh.enabled must be true", errors)
+        require(
+            local_refresh.get("script") == "scripts/local_refresh_repos.py",
+            "local_refresh.script must be scripts/local_refresh_repos.py",
+            errors,
+        )
+        require(
+            local_refresh.get("invocation_policy") == "refresh_all_on_skill_invocation",
+            "local_refresh.invocation_policy must be refresh_all_on_skill_invocation",
+            errors,
+        )
+        require(
+            local_refresh.get("source_scope") == "all_registry_sources",
+            "local_refresh.source_scope must be all_registry_sources",
+            errors,
+        )
+        require(
+            local_refresh.get("artifact_policy") == "local_only_gitignored",
+            "local_refresh.artifact_policy must be local_only_gitignored",
+            errors,
+        )
+        graphify_policy = local_refresh.get("graphify_policy")
+        require(isinstance(graphify_policy, dict), "local_refresh.graphify_policy must be a mapping", errors)
+        if isinstance(graphify_policy, dict):
+            require(
+                graphify_policy.get("deterministic_locator_graph") is True,
+                "local_refresh.graphify_policy.deterministic_locator_graph must be true",
+                errors,
+            )
+            require(
+                graphify_policy.get("semantic_graphify") == "requires_graphify_skill_or_future_non_agent_cli",
+                "local_refresh.graphify_policy.semantic_graphify must document the semantic graphify boundary",
+                errors,
+            )
     allowed_modes = defaults.get("allowed_modes")
     require(isinstance(allowed_modes, list), "materialization_defaults.allowed_modes must be a list", errors)
     if isinstance(allowed_modes, list):
@@ -368,8 +409,8 @@ def validate_materialization(source_id: str, source: dict, registry: dict, mater
     mode = materialization.get("mode")
     require(mode in ALLOWED_MODES, f"{source_id}: invalid materialization.mode {mode}", errors)
     require(
-        materialization.get("implementation_status") == "dry_run_only",
-        f"{source_id}: implementation_status must be dry_run_only",
+        materialization.get("implementation_status") == "local_refresh_enabled",
+        f"{source_id}: implementation_status must be local_refresh_enabled",
         errors,
     )
     require(materialization.get("pin_policy") in ALLOWED_PIN_POLICIES, f"{source_id}: invalid pin_policy", errors)
@@ -529,6 +570,7 @@ def validate_root_files(root: Path, errors: list[str]) -> None:
         "references/materialization-pipeline.md",
         "references/graph-scope-policy.md",
         "references/materialization-writer-design.md",
+        "scripts/local_refresh_repos.py",
         "scripts/materialize_repo_pointer.py",
         "validation/validate_router_tree.py",
         "validation/qa_prompts.md",
@@ -554,6 +596,16 @@ def validate_root_files(root: Path, errors: list[str]) -> None:
         "SKILL.md must name route-registry.yaml as category source of truth",
         errors,
     )
+    require(
+        "scripts/local_refresh_repos.py" in skill_text and "--all" in skill_text,
+        "SKILL.md must require local refresh on skill invocation",
+        errors,
+    )
+    require(
+        "temp_artifact/repo_pointer_router_cache" in skill_text,
+        "SKILL.md must name the local materialization cache path",
+        errors,
+    )
     require("docs/ 下" not in skill_text, "SKILL.md must not claim the published root lives under docs/", errors)
 
     gitignore = root / ".gitignore"
@@ -575,6 +627,8 @@ def validate_root_files(root: Path, errors: list[str]) -> None:
     for path in root.rglob("*"):
         rel_parts = path.relative_to(root).parts
         if any(part in SKIP_WALK_DIRS for part in rel_parts):
+            continue
+        if is_generated_dir_sidecar(path):
             continue
         require(not path.is_symlink(), f"draft skill must not contain symlink: {path.relative_to(root)}", errors)
         require(not path.name.startswith("._"), f"draft skill must not contain macOS sidecar file: {path.relative_to(root)}", errors)
@@ -717,8 +771,8 @@ def validate_dry_run(root: Path, registry_path: Path, registry: dict, errors: li
             capture_output=True,
             check=False,
         )
-        require(proc.returncode == 2, "write-cache mode must be rejected in staged draft", errors)
-        require("not implemented" in proc.stderr, "write-cache rejection must explain that it is not implemented", errors)
+        require(proc.returncode == 2, "write-cache mode must be rejected by the dry-run planner", errors)
+        require("not implemented" in proc.stderr, "write-cache rejection must explain that it is not implemented on the planner", errors)
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Sologa/ai-capability-pointer-router/schemas/materialization-manifest.schema.json",
   "title": "Materialization Manifest Contract",
-  "description": "Contract-only schema for a future reviewed materialization writer. This repo does not currently generate this artifact.",
+  "description": "Schema for local-only materialization manifests under git-ignored temp_artifact. These manifests are locators, not evidence by themselves.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,7 +12,8 @@
     "resolved_commit",
     "materialized_at",
     "worktree_path",
-    "safety"
+    "safety",
+    "locator_only"
   ],
   "properties": {
     "source_id": {
@@ -45,7 +46,8 @@
         "run_package_install",
         "run_repo_scripts",
         "run_hooks",
-        "follow_external_symlinks"
+        "follow_external_symlinks",
+        "submodules_recursive"
       ],
       "properties": {
         "run_package_install": {
@@ -59,8 +61,14 @@
         },
         "follow_external_symlinks": {
           "const": false
+        },
+        "submodules_recursive": {
+          "const": false
         }
       }
+    },
+    "locator_only": {
+      "const": true
     }
   },
   "$defs": {

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Draft materialization planner for ai-capability-pointer-router.
 
-This staged implementation is intentionally conservative: dry-run prints the
-declared plan and never clones, fetches, installs, runs hooks, or executes repo
-code. Non-dry-run exits with a clear message until the clone/index writer is
-implemented and reviewed.
+This implementation is the read-only planner. It prints the declared plan and
+never clones, fetches, installs, runs hooks, or executes repo code. Local cache
+refresh is handled by scripts/local_refresh_repos.py; --write-cache remains
+disabled on this planner.
 """
 
 from __future__ import annotations
@@ -29,6 +29,7 @@ ALLOWED_MODES = {
 ALLOWED_PIN_POLICIES = {"record_resolved_commit", "exact_ref_only"}
 ALLOWED_UPDATE_POLICIES = {"fetch_latest_on_explicit_use", "no_auto_update", "manual_refresh_only"}
 ALLOWED_GRAPH_MODES = {"locator_only"}
+ALLOWED_IMPLEMENTATION_STATUSES = {"local_refresh_enabled"}
 SOURCE_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 CACHE_ROOT = "temp_artifact/repo_pointer_router_cache"
 CACHE_PREFIX = f"{CACHE_ROOT}/"
@@ -140,8 +141,8 @@ def validate_source(registry: dict, source_id: str) -> dict:
     mode = materialization.get("mode")
     if mode not in ALLOWED_MODES:
         raise ValueError(f"{source_id}: invalid materialization.mode '{mode}'")
-    if materialization.get("implementation_status") != "dry_run_only":
-        raise ValueError(f"{source_id}: implementation_status must be dry_run_only")
+    if materialization.get("implementation_status") not in ALLOWED_IMPLEMENTATION_STATUSES:
+        raise ValueError(f"{source_id}: implementation_status must be local_refresh_enabled")
     if materialization.get("pin_policy") not in ALLOWED_PIN_POLICIES:
         raise ValueError(f"{source_id}: invalid pin_policy")
     if materialization.get("update_policy") not in ALLOWED_UPDATE_POLICIES:
@@ -225,7 +226,7 @@ def build_plan(registry_path: Path, registry: dict, source_id: str) -> dict:
             "manifest_exists": manifest_exists,
             "git_state": f"{repo_dir}/git_state.json",
             "route_index": f"{repo_dir}/route_index.json",
-            "graph": f"{repo_dir}/graphify-out/graph.json" if graph.get("enabled") else None,
+            "graph": f"{repo_dir}/worktree/graphify-out/graph.json" if graph.get("enabled") else None,
         },
         "graph": {
             "enabled": bool(graph.get("enabled")),
@@ -273,8 +274,8 @@ def main(argv: list[str] | None = None) -> int:
         args = parse_args(argv or sys.argv[1:])
         if args.write_cache:
             print(
-                "--write-cache is intentionally not implemented in this staged draft; "
-                "clone/fetch/index/write-cache requires a separate reviewed implementation.",
+                "--write-cache is intentionally not implemented on the dry-run planner; "
+                "use scripts/local_refresh_repos.py for local-only cache refresh.",
                 file=sys.stderr,
             )
             return 2
@@ -291,7 +292,8 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(plan, indent=2, ensure_ascii=False, sort_keys=True))
         print(
             "Write actions require an explicit --write-cache flag, and that mode is "
-            "not implemented in this staged draft. Rerun with --dry-run for read-only planning.",
+            "not implemented on this dry-run planner. Rerun with --dry-run for read-only "
+            "planning, or use scripts/local_refresh_repos.py for local-only cache refresh.",
             file=sys.stderr,
         )
         return 2
