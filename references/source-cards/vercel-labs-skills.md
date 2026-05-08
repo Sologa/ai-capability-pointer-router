@@ -70,7 +70,7 @@ do_not_use_for:
 
 ## Materialization
 
-使用 `materialize_on_first_use`。選定 `skill_building` category 或本 source 後，用 `scripts/local_refresh_repos.py --category skill_building` 或 `--source vercel-labs-skills` 將本 repo clone/refresh 到本地 git-ignored cache。clean up-to-date 時不 fetch/reset，也不重建 locator graph；dirty cache 會不 fetch 但 reset/clean 並重建 locator artifacts；commit、scope、route index 或 graph writer version 改變時才重建 graphify-out locator artifacts / semantic-needed marker。需要 CLI/source parsing/lock/update 行為時，優先讀本地 worktree 的 raw files 和 `graphify-out/` locators。
+使用 `materialize_on_first_use`。選定 `skill_building` category 或本 source 後，用 `scripts/local_refresh_repos.py --category skill_building` 或 `--source vercel-labs-skills` 將本 repo clone/refresh 到本地 git-ignored cache。clean up-to-date 時不 fetch/reset，也不重建 locator graph；dirty cache 會不 fetch 但 reset/clean 並重建 locator artifacts；commit、scope、route index、graph writer version 或 graph/report content hash 改變時才重建 graphify-out locator artifacts / semantic-needed marker。需要 CLI/source parsing/lock/update 行為時，優先讀本地 worktree 的 raw files 和 `graphify-out/` locators。
 
 Manifest locator: `temp_artifact/repo_pointer_router_cache/repos/vercel-labs-skills/materialization.json`
 Local worktree: `temp_artifact/repo_pointer_router_cache/repos/vercel-labs-skills/worktree`

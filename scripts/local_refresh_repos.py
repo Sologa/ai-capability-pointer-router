@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import hashlib
 import json
 import re
 import shutil
@@ -30,7 +31,8 @@ ROUTE_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 CACHE_ROOT = "temp_artifact/repo_pointer_router_cache"
 CACHE_PREFIX = f"{CACHE_ROOT}/"
 ALLOWED_REF_VALUES = {"main", "tags", "commit_sha"}
-GRAPH_WRITER_VERSION = "locator_graph_v1"
+GRAPH_WRITER_VERSION = "locator_graph_v2"
+GRAPH_META_SCHEMA_VERSION = "graph_meta_v1"
 SEMANTIC_EXTENSIONS = {
     ".csv",
     ".doc",
@@ -355,13 +357,56 @@ def graph_meta(source_id: str, source: dict, materialization: dict, resolved_com
     }
 
 
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def object_sha256(value: object) -> str:
+    payload = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def graph_meta_record(out: Path, expected_meta: dict) -> dict:
+    return {
+        "meta_schema_version": GRAPH_META_SCHEMA_VERSION,
+        "inputs": expected_meta,
+        "inputs_sha256": object_sha256(expected_meta),
+        "output_hashes": {
+            "graph_json_sha256": file_sha256(out / "graph.json"),
+            "graph_report_json_sha256": file_sha256(out / "graph_report.json"),
+        },
+    }
+
+
 def graph_is_current(out: Path, expected_meta: dict) -> bool:
-    return (
-        (out / "graph.json").is_file()
-        and (out / "graph_report.json").is_file()
-        and (out / "graph_meta.json").is_file()
-        and read_json(out / "graph_meta.json") == expected_meta
-    )
+    graph_path = out / "graph.json"
+    report_path = out / "graph_report.json"
+    meta_path = out / "graph_meta.json"
+    if not (graph_path.is_file() and report_path.is_file() and meta_path.is_file()):
+        return False
+    try:
+        stored = read_json(meta_path)
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not isinstance(stored, dict) or stored.get("meta_schema_version") != GRAPH_META_SCHEMA_VERSION:
+        return False
+    if stored.get("inputs") != expected_meta or stored.get("inputs_sha256") != object_sha256(expected_meta):
+        return False
+    output_hashes = stored.get("output_hashes")
+    if not isinstance(output_hashes, dict):
+        return False
+    try:
+        return (
+            output_hashes.get("graph_json_sha256") == file_sha256(graph_path)
+            and output_hashes.get("graph_report_json_sha256") == file_sha256(report_path)
+        )
+    except OSError:
+        return False
+
 
 
 def iter_scoped_files(worktree: Path, includes: list[str], excludes: list[str]) -> list[Path]:
@@ -500,7 +545,7 @@ def run_graphify_code(
     }
     atomic_write_json(out / "graph.json", graph_artifact)
     atomic_write_json(out / "graph_report.json", report_artifact)
-    atomic_write_json(out / "graph_meta.json", expected_meta)
+    atomic_write_json(out / "graph_meta.json", graph_meta_record(out, expected_meta))
     status = "locator_graph_updated"
     atomic_write_text(
         out / "GRAPH_REPORT.md",

@@ -68,7 +68,7 @@ python scripts/local_refresh_repos.py \
   --source agentskills-agentskills
 ```
 
-The script clones missing repos. For an existing worktree, it first checks remote HEAD. If the recorded local commit is current and the cache is clean, it skips fetch/reset; if the local cache is dirty, it resets/cleans without fetching. Graph artifacts are skipped only when the commit, graph scope, route index, and graph writer version are unchanged. Outputs stay under:
+The script clones missing repos. For an existing worktree, it first checks remote HEAD. If the recorded local commit is current and the cache is clean, it skips fetch/reset; if the local cache is dirty, it resets/cleans without fetching. Graph artifacts are skipped only when the commit, graph scope, route index, graph writer version, and stored graph/report content hashes are unchanged. Outputs stay under:
 
 ```text
 temp_artifact/repo_pointer_router_cache/repos/<source_id>/
@@ -79,6 +79,7 @@ temp_artifact/repo_pointer_router_cache/repos/<source_id>/
     graphify-out/
       graph.json
       graph_report.json
+      graph_meta.json
 ```
 
 `temp_artifact/` and `graphify-out/` are git-ignored. These local clones and graph outputs must not be committed or pushed.

@@ -40,7 +40,7 @@ For each materialized source, the writer must produce locator-only artifacts:
 - `git_state.json`, recording requested ref, resolved commit, checkout status, and safety flags;
 - `route_index.json`, validated against `schemas/route-index-artifact.schema.json`;
 - graph artifacts only under the local worktree `graphify-out/`, never committed.
-- graph rebuilds must be skipped when commit, graph scope, route index, and graph writer version are unchanged.
+- graph rebuilds must be skipped only when commit, graph scope, route index, graph writer version, and recorded graph/report content hashes are unchanged.
 
 These artifacts locate raw files. They are not evidence for factual claims.
 
@@ -59,6 +59,7 @@ Before extending local refresh or enabling planner `--write-cache`, add validato
 - local anchor files exist, are regular files, are not symlinks, and resolve under the worktree;
 - existing worktree hook/submodule config is hardened before every refresh decision;
 - dirty up-to-date cache is reset/cleaned without fetching;
+- existing graph/report artifact content hashes are checked before declaring graph output up to date;
 - graph scope coverage and file/byte budget reports when graph is enabled.
 
 ## Required Tests
@@ -77,5 +78,6 @@ At minimum cover:
 - dirty up-to-date cache reset without fetch;
 - partial category failure with successful manifest-index merge;
 - regular-file anchor validation and symlink anchor rejection;
+- graph artifact tampering causing a rebuild rather than a stale skip;
 - interrupted cache write and cleanup;
 - package scripts/hooks/submodules remaining unexecuted.

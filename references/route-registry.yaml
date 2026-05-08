@@ -110,7 +110,7 @@ sources:
       graph:
         enabled: true
         mode: "locator_only"
-        rebuild_policy: "on_commit_scope_route_index_or_writer_version_change"
+        rebuild_policy: "on_commit_scope_route_index_writer_version_or_content_hash_change"
         scope:
           include:
             - "README.md"
@@ -176,7 +176,7 @@ sources:
       graph:
         enabled: true
         mode: "locator_only"
-        rebuild_policy: "on_commit_scope_route_index_or_writer_version_change"
+        rebuild_policy: "on_commit_scope_route_index_writer_version_or_content_hash_change"
         scope:
           include:
             - "README.md"
@@ -246,7 +246,7 @@ sources:
       graph:
         enabled: true
         mode: "locator_only"
-        rebuild_policy: "on_commit_scope_route_index_or_writer_version_change"
+        rebuild_policy: "on_commit_scope_route_index_writer_version_or_content_hash_change"
         scope:
           include:
             - "README.md"
@@ -331,7 +331,7 @@ sources:
       graph:
         enabled: true
         mode: "locator_only"
-        rebuild_policy: "on_commit_scope_route_index_or_writer_version_change"
+        rebuild_policy: "on_commit_scope_route_index_writer_version_or_content_hash_change"
         scope:
           include:
             - "site/docs"

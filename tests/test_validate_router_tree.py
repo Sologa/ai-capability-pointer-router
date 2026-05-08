@@ -624,6 +624,34 @@ class RouterTreeValidationTests(unittest.TestCase):
             self.assertEqual(run_git(worktree, "config", "--get", "core.hooksPath"), "/dev/null")
             self.assertEqual(run_git(worktree, "config", "--get", "submodule.recurse"), "false")
 
+    def test_local_refresh_does_not_run_polluted_existing_worktree_hook(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "skill"
+            root.mkdir()
+            repo = create_fixture_git_repo(Path(temp))
+            registry = fixture_registry(repo)
+            marker = Path(temp) / "hook-ran"
+            module = self.import_local_refresh()
+            with mock.patch.object(module, "validate_repo_url", return_value=None):
+                module.refresh_source(root, registry, "fixture-source")
+                worktree = root / "temp_artifact/repo_pointer_router_cache/repos/fixture-source/worktree"
+                hook = worktree / ".git/hooks/post-checkout"
+                hook.write_text(
+                    "#!/bin/sh\n"
+                    f"python3 -c \"from pathlib import Path; Path({str(marker)!r}).write_text('ran')\"\n",
+                    encoding="utf-8",
+                )
+                hook.chmod(0o755)
+                run_git(worktree, "config", "core.hooksPath", ".git/hooks")
+                (repo / "README.md").write_text("# Fixture\n\nChanged\n", encoding="utf-8")
+                run_git(repo, "add", "README.md")
+                run_git(repo, "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "change")
+                second = module.refresh_source(root, registry, "fixture-source")
+            self.assertEqual(second["action"], "refresh")
+            self.assertTrue(second["fetch_performed"])
+            self.assertFalse(marker.exists())
+            self.assertEqual(run_git(worktree, "config", "--get", "core.hooksPath"), "/dev/null")
+
     def test_local_refresh_rejects_symlink_anchor_in_worktree(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "skill"
@@ -785,6 +813,53 @@ class RouterTreeValidationTests(unittest.TestCase):
                 list(Draft202012Validator(report_schema, format_checker=FormatChecker()).iter_errors(report)),
                 [],
             )
+            meta = json.loads((worktree / "graphify-out/graph_meta.json").read_text(encoding="utf-8"))
+            self.assertEqual(meta["meta_schema_version"], "graph_meta_v1")
+            self.assertIn("inputs", meta)
+            self.assertIn("inputs_sha256", meta)
+            self.assertIn("output_hashes", meta)
+            self.assertIn("graph_json_sha256", meta["output_hashes"])
+            self.assertIn("graph_report_json_sha256", meta["output_hashes"])
+
+    def test_graph_artifact_tampering_triggers_rebuild(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            source = registry["sources"]["agentskills-agentskills"]
+            worktree = Path(temp) / "worktree"
+            (worktree / "docs").mkdir(parents=True)
+            (worktree / "skills-ref").mkdir()
+            (worktree / "README.md").write_text("# Agentskills\n", encoding="utf-8")
+            (worktree / "docs/specification.mdx").write_text("# Spec\n", encoding="utf-8")
+            (worktree / "skills-ref/README.md").write_text("# Ref\n", encoding="utf-8")
+            module = self.import_local_refresh()
+            first = module.run_graphify_code(
+                "agentskills-agentskills",
+                source,
+                worktree,
+                source["materialization"],
+                "a" * 40,
+            )
+            (worktree / "graphify-out/graph.json").write_text('{"tampered": true}\n', encoding="utf-8")
+            second = module.run_graphify_code(
+                "agentskills-agentskills",
+                source,
+                worktree,
+                source["materialization"],
+                "a" * 40,
+            )
+            third = module.run_graphify_code(
+                "agentskills-agentskills",
+                source,
+                worktree,
+                source["materialization"],
+                "a" * 40,
+            )
+            graph = json.loads((worktree / "graphify-out/graph.json").read_text(encoding="utf-8"))
+            self.assertEqual(first["status"], "locator_graph_updated")
+            self.assertEqual(second["status"], "locator_graph_updated")
+            self.assertEqual(third["status"], "graph_up_to_date")
+            self.assertEqual(graph["semantics"], "locator_only")
 
     def test_manifest_index_merge_preserves_unselected_sources(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

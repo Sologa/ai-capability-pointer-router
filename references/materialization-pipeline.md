@@ -2,7 +2,7 @@
 
 materialization 有兩條路徑：category/source-scoped local refresh，以及只讀 dry-run planner。local refresh 不再 refresh 全 registry；root 選定 category 後才 refresh 該 category 的 sources，深讀 worktree 仍然是 lazy 的，只在 source card/anchor 選定後進行。
 
-**Current local status:** `scripts/local_refresh_repos.py --category <route_id>` 會處理該 category 的 sources；`--source <source_id>` 會處理單一 source。missing repo 會 clone；existing worktree 會先做 remote HEAD freshness check。若 local commit 已是最新且 cache clean，腳本不 fetch/reset，也不重建 graph。若 local commit 最新但 cache dirty，腳本不 fetch，但會 reset/clean 並重建 locator artifacts。若 remote commit、graph scope、route index 或 graph writer version 改變，才更新 local-only manifest / git_state / route_index / graph artifacts。所有產物都在 git-ignored `temp_artifact/repo_pointer_router_cache/`，不得 push。
+**Current local status:** `scripts/local_refresh_repos.py --category <route_id>` 會處理該 category 的 sources；`--source <source_id>` 會處理單一 source。missing repo 會 clone；existing worktree 會先做 remote HEAD freshness check。若 local commit 已是最新且 cache clean，腳本不 fetch/reset，也不重建 graph。若 local commit 最新但 cache dirty，腳本不 fetch，但會 reset/clean 並重建 locator artifacts。若 remote commit、graph scope、route index、graph writer version 或既有 graph/report content hash 改變，才更新 local-only manifest / git_state / route_index / graph artifacts。所有產物都在 git-ignored `temp_artifact/repo_pointer_router_cache/`，不得 push。
 
 **Current planner status:** `scripts/materialize_repo_pointer.py --dry-run` 只輸出計劃；non-dry-run / `--write-cache` 仍明確拒絕執行。`implementation_status: local_refresh_enabled` 指 local refresh script 已啟用，不代表 dry-run planner 可以 write cache。
 
@@ -10,7 +10,7 @@ materialization 有兩條路徑：category/source-scoped local refresh，以及�
 
 - `pointer_only`: 只保存 source card，不下載 repo。
 - `materialize_on_first_use`: category/source 選定後 local refresh；深讀時使用 selected local worktree anchors。
-- `materialize_and_graph_on_first_use`: category/source 選定後 local refresh，且在 commit/scope/route index/graph writer version 改變時重建 locator graph output；深讀時使用 selected local worktree anchors / graph locators。
+- `materialize_and_graph_on_first_use`: category/source 選定後 local refresh，且在 commit/scope/route index/graph writer version 或 graph/report content hash 改變時重建 locator graph output；深讀時使用 selected local worktree anchors / graph locators。
 - `manual_only`: 不自動 clone，不自動 graph。
 
 ## Required Registry Fields

@@ -19,7 +19,7 @@ description: Use when a user asks which AI capability repository to consult for 
 
 預設只讀本檔、被選中的 category router、被選中的 source card，以及被選中 category/source refresh 後的 manifest / git_state / route_index / graphify status。不要因為 source card 指到 repo 就深讀整個 worktree；只讀被選中 anchors 或問題需要的 scoped raw files。
 
-`scripts/local_refresh_repos.py` 是 local-only automation：對選定 category/source clone 或 remote HEAD check；只有 remote commit 改變、cache 缺失或本地 cache dirty 時才 reset/clean latest `main`，且只有 remote commit 改變或 cache 缺失時才 fetch。它會驗證 `read_first` / route-index anchors 是 worktree 內 regular files，寫入 local manifest / route index，並在 commit、scope、route index 或 graph writer version 改變時重建 deterministic locator graph。全部產物都在 `.gitignore` 排除的 `temp_artifact/repo_pointer_router_cache/` 下，不得 commit/push。`scripts/materialize_repo_pointer.py` 仍只是 dry-run planner，`--write-cache` 仍禁用。
+`scripts/local_refresh_repos.py` 是 local-only automation：對選定 category/source clone 或 remote HEAD check；只有 remote commit 改變、cache 缺失或本地 cache dirty 時才 reset/clean latest `main`，且只有 remote commit 改變或 cache 缺失時才 fetch。它會驗證 `read_first` / route-index anchors 是 worktree 內 regular files，寫入 local manifest / route index，並在 commit、scope、route index、graph writer version 或 graph/report content hash 改變時重建 deterministic locator graph。全部產物都在 `.gitignore` 排除的 `temp_artifact/repo_pointer_router_cache/` 下，不得 commit/push。`scripts/materialize_repo_pointer.py` 仍只是 dry-run planner，`--write-cache` 仍禁用。
 
 目前 graphify 的完整 semantic extraction 仍需要 `/graphify` skill / subagent 或未來 non-agent CLI；local refresh 會為 docs/papers/images 寫 `graphify-out/needs_semantic_graphify`，不能把它說成 complete semantic graph。
 

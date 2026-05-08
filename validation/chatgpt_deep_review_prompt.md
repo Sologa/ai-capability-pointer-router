@@ -147,10 +147,10 @@ Check:
 - Does any wording make readers confuse the dry-run planner with the implemented local refresh path?
 - Does `implementation_status: local_refresh_enabled` clearly distinguish the local refresh script from the dry-run planner's disabled `--write-cache` mode?
 - What exact threat model and controls are required before extending local materialization or enabling planner `--write-cache`?
-- What minimum writer behavior is needed: `--category` / `--source`, HTTPS GitHub allowlist, safe refs, resolved commit recording, no hooks, no submodules, no package installs, no repo script execution, dirty cache cleanup, symlink/anchor rejection, scoped file limits, atomic writes, partial-failure reporting, rollback/cleanup, and cache provenance?
+- What minimum writer behavior is needed: `--category` / `--source`, HTTPS GitHub allowlist, safe refs, resolved commit recording, no hooks, no submodules, no package installs, no repo script execution, dirty cache cleanup, symlink/anchor rejection, scoped file limits, graph artifact hash checks, atomic writes, partial-failure reporting, rollback/cleanup, and cache provenance?
 - Should future write-cache artifacts use separate schema versions rather than weakening the current dry-run schema where clone/fetch must be false?
 - If graphify is part of the target for every registered repo, do all four sources have explicit graph scope, graph artifact paths, graph refresh policy, and graph validation rules?
-- What tests and validators are required before trusting local cache or graph artifacts: fixture git repos, malicious URLs, unsafe refs, path traversal, symlink escapes, oversized repos, graph scope escape, stale manifest refresh, interrupted writes, and `--require-local-cache` checks?
+- What tests and validators are required before trusting local cache or graph artifacts: fixture git repos, malicious URLs, unsafe refs, path traversal, symlink escapes, oversized repos, graph scope escape, stale manifest refresh, graph artifact tampering, interrupted writes, and `--require-local-cache` checks?
 
 Return:
 
