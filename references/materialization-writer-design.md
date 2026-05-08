@@ -22,8 +22,11 @@ It must:
 - allow only HTTPS GitHub repos from the registry host allowlist;
 - reject ambiguous source IDs and refs;
 - clone/fetch/checkout without running hooks, package managers, repo scripts, builds, or tests;
+- force existing worktree git config to `core.hooksPath=/dev/null` and `submodule.recurse=false` before refresh decisions;
+- check dirty existing worktrees before declaring them up to date; dirty caches may be reset/cleaned without fetching;
 - avoid recursive submodule checkout by default;
 - resolve and record a 40-character commit SHA;
+- validate `read_first` and route-index anchors as regular files inside the worktree before using them as locators;
 - write under `temp_artifact/repo_pointer_router_cache/repos/<source_id>/`;
 - write cache atomically;
 - leave generated cache and graph outputs untracked by default;
@@ -52,6 +55,10 @@ Before extending local refresh or enabling planner `--write-cache`, add validato
 - no generated artifact committed accidentally;
 - `--require-local-cache` checks for expected worktree, manifest, git state, and route index;
 - manifest-index writes merge selected-source results instead of truncating unrelated cached sources;
+- partial category failures still merge successful selected-source results before returning a non-zero status;
+- local anchor files exist, are regular files, are not symlinks, and resolve under the worktree;
+- existing worktree hook/submodule config is hardened before every refresh decision;
+- dirty up-to-date cache is reset/cleaned without fetching;
 - graph scope coverage and file/byte budget reports when graph is enabled.
 
 ## Required Tests
@@ -67,5 +74,8 @@ At minimum cover:
 - oversized file count or byte count;
 - graph scope escape;
 - stale manifest refresh;
+- dirty up-to-date cache reset without fetch;
+- partial category failure with successful manifest-index merge;
+- regular-file anchor validation and symlink anchor rejection;
 - interrupted cache write and cleanup;
 - package scripts/hooks/submodules remaining unexecuted.

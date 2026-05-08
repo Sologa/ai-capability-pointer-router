@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import copy
+import contextlib
+import io
 import shutil
 import subprocess
 import sys
@@ -585,6 +588,102 @@ class RouterTreeValidationTests(unittest.TestCase):
             self.assertNotEqual(first["resolved_commit"], second["resolved_commit"])
             self.assertEqual(second["graphify"]["status"], "locator_graph_updated")
 
+    def test_local_refresh_cleans_dirty_up_to_date_worktree_without_fetch(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "skill"
+            root.mkdir()
+            repo = create_fixture_git_repo(Path(temp))
+            registry = fixture_registry(repo)
+            module = self.import_local_refresh()
+            with mock.patch.object(module, "validate_repo_url", return_value=None):
+                module.refresh_source(root, registry, "fixture-source")
+                worktree = root / "temp_artifact/repo_pointer_router_cache/repos/fixture-source/worktree"
+                (worktree / "README.md").write_text("# Injected\n", encoding="utf-8")
+                (worktree / "injected.txt").write_text("local pollution\n", encoding="utf-8")
+                second = module.refresh_source(root, registry, "fixture-source")
+            self.assertEqual(second["action"], "up_to_date_cleaned")
+            self.assertFalse(second["fetch_performed"])
+            self.assertEqual((worktree / "README.md").read_text(encoding="utf-8"), "# Fixture\n")
+            self.assertFalse((worktree / "injected.txt").exists())
+            self.assertEqual(second["graphify"]["status"], "locator_graph_updated")
+
+    def test_local_refresh_hardens_existing_worktree_git_config(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "skill"
+            root.mkdir()
+            repo = create_fixture_git_repo(Path(temp))
+            registry = fixture_registry(repo)
+            module = self.import_local_refresh()
+            with mock.patch.object(module, "validate_repo_url", return_value=None):
+                module.refresh_source(root, registry, "fixture-source")
+                worktree = root / "temp_artifact/repo_pointer_router_cache/repos/fixture-source/worktree"
+                run_git(worktree, "config", "core.hooksPath", ".git/hooks")
+                run_git(worktree, "config", "submodule.recurse", "true")
+                second = module.refresh_source(root, registry, "fixture-source")
+            self.assertEqual(second["action"], "up_to_date")
+            self.assertEqual(run_git(worktree, "config", "--get", "core.hooksPath"), "/dev/null")
+            self.assertEqual(run_git(worktree, "config", "--get", "submodule.recurse"), "false")
+
+    def test_local_refresh_rejects_symlink_anchor_in_worktree(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "skill"
+            root.mkdir()
+            repo = create_fixture_git_repo(Path(temp))
+            try:
+                (repo / "README.md").unlink()
+                (repo / "README.md").symlink_to("/tmp/nonexistent-ai-capability-pointer-router-anchor")
+            except (NotImplementedError, OSError) as exc:
+                self.skipTest(f"symlink unavailable: {exc}")
+            run_git(repo, "add", "README.md")
+            run_git(repo, "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "symlink-anchor")
+            registry = fixture_registry(repo)
+            module = self.import_local_refresh()
+            with mock.patch.object(module, "validate_repo_url", return_value=None):
+                with self.assertRaisesRegex(module.RefreshError, "anchor must be a regular file, not symlink"):
+                    module.refresh_source(root, registry, "fixture-source")
+
+    def test_local_refresh_rejects_unsafe_anchor_before_network(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "skill"
+            root.mkdir()
+            repo = create_fixture_git_repo(Path(temp))
+            registry = fixture_registry(repo)
+            registry["sources"]["fixture-source"]["read_first"] = ["../README.md"]
+            module = self.import_local_refresh()
+            with mock.patch.object(module, "remote_head", side_effect=AssertionError("network touched")):
+                with mock.patch.object(module, "validate_repo_url", return_value=None):
+                    with self.assertRaisesRegex(module.RefreshError, "anchor path must be a safe relative POSIX path"):
+                        module.refresh_source(root, registry, "fixture-source")
+
+    def test_local_refresh_partial_failure_merges_successful_results(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "skill"
+            (root / "references").mkdir(parents=True)
+            repo = create_fixture_git_repo(Path(temp))
+            registry = fixture_registry(repo)
+            good = registry["sources"]["fixture-source"]
+            bad = copy.deepcopy(good)
+            bad["source_id"] = "bad-source"
+            bad["materialization"]["manifest"]["path"] = (
+                "temp_artifact/repo_pointer_router_cache/repos/bad-source/materialization.json"
+            )
+            bad["materialization"]["graph"]["mode"] = "summary_graph"
+            bad["route_index"] = {"bad-source/readme": ["README.md"]}
+            registry["routes"]["fixture_route"]["sources"] = ["fixture-source", "bad-source"]
+            registry["sources"]["bad-source"] = bad
+            registry_path = root / "references/route-registry.yaml"
+            write_registry(root, registry)
+            module = self.import_local_refresh()
+            with mock.patch.object(module, "validate_repo_url", return_value=None):
+                stdout = io.StringIO()
+                with contextlib.redirect_stdout(stdout):
+                    code = module.main(["--registry", str(registry_path), "--category", "fixture_route"])
+            self.assertEqual(code, 1)
+            self.assertEqual(json.loads(stdout.getvalue())["status"], "local_refresh_partial_failure")
+            index = root / "temp_artifact/repo_pointer_router_cache/indexes/repo-materialization-index.jsonl"
+            rows = [json.loads(line) for line in index.read_text(encoding="utf-8").splitlines()]
+            self.assertEqual([row["source_id"] for row in rows], ["fixture-source"])
+
     def test_dry_run_plans_match_materialization_plan_schema(self) -> None:
         with copy_repo() as temp:
             root = Path(temp) / "skill"
@@ -861,6 +960,20 @@ class RouterTreeValidationTests(unittest.TestCase):
         self.assertEqual(missing, 0)
         self.assertTrue(results[0]["exists"])
         self.assertEqual(results[0]["metadata_error"], "rate limited")
+
+    def test_upstream_checker_blob_sha_rejects_non_file_contents_response(self) -> None:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("check_upstream_anchors", UPSTREAM_CHECKER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+
+        with mock.patch.object(module, "fetch_json", return_value=({"type": "dir", "sha": "b" * 40}, None)):
+            blob_sha, error = module.resolve_blob_sha("owner", "repo", "main", "docs", 0.01)
+        self.assertIsNone(blob_sha)
+        self.assertEqual(error, "GitHub contents response type is not file: dir")
 
 
 if __name__ == "__main__":

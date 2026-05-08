@@ -85,7 +85,7 @@ Return mismatches as a table with source, file/path, issue, severity, and sugges
 
 ### 4. Graph Completeness
 
-Assess graph/index readiness, even though the repo currently has no built graph output.
+Assess graph/index readiness. Generated graph outputs are local-only under git-ignored `temp_artifact/`, not committed repository artifacts.
 
 Check:
 
@@ -94,12 +94,13 @@ Check:
 - Are deterministic indexes distinguished from semantic graphify output?
 - Are graph max file/byte limits reasonable?
 - Are graph outputs excluded from publication when rebuildable?
+- Does local refresh rebuild only when commit, graph scope, route index, or graph writer version changes?
 - What would be needed to claim the graph is complete?
 
 Return:
 
 - current graph completeness score from 0 to 10;
-- whether graph is intentionally absent or missing;
+- whether committed graph artifacts are intentionally absent or missing;
 - minimum graph/index artifacts needed for a stronger version;
 - validation checks needed for graph refresh.
 
@@ -108,12 +109,19 @@ Return:
 Review all automation:
 
 - `scripts/materialize_repo_pointer.py`
+- `scripts/local_refresh_repos.py`
 - `validation/validate_router_tree.py`
 - `validation/qa_prompts.md`
 
 Check:
 
 - Does the materialization script correctly refuse unsafe writes in this staged draft?
+- Does local refresh enforce category/source scope without `--all`?
+- Does local refresh skip fetch/reset on clean up-to-date worktrees?
+- Does local refresh reset/clean dirty up-to-date worktrees without fetching?
+- Does local refresh harden existing worktree hook/submodule config?
+- Does local refresh validate `read_first` and route-index anchors as regular in-worktree files?
+- Does local refresh merge successful selected-source results into the manifest index even on partial category failure?
 - Does dry-run expose enough plan fields?
 - Are host allowlist and cache path checks sufficient?
 - Does validator cover the tree invariant and route/card closure?
@@ -130,7 +138,7 @@ Return:
 
 ### 6. Clone-Backed And Graph-Backed Target Gap
 
-The dry-run planner is intentionally read-only: `--write-cache` is rejected, dry-run plans require `safety.clone=false` and `safety.fetch=false`. Separately, `scripts/local_refresh_repos.py` is an accepted local-only cache path where selected category/source repos should be checked, pulled/refreshed only when stale or changed, pinned, indexed, and graphified. Generated cache/graph artifacts must stay untracked.
+The dry-run planner is intentionally read-only: `--write-cache` is rejected, dry-run plans require `safety.clone=false` and `safety.fetch=false`. Separately, `scripts/local_refresh_repos.py` is an accepted local-only cache path where selected category/source repos should be checked, pulled/refreshed only when stale or changed, pinned, indexed, and graphified. Clean up-to-date worktrees should skip fetch/reset/graph rebuild; dirty up-to-date worktrees should be reset/cleaned without fetching. Generated cache/graph artifacts must stay untracked.
 
 Assess this gap directly.
 
@@ -139,7 +147,7 @@ Check:
 - Does any wording make readers confuse the dry-run planner with the implemented local refresh path?
 - Does `implementation_status: local_refresh_enabled` clearly distinguish the local refresh script from the dry-run planner's disabled `--write-cache` mode?
 - What exact threat model and controls are required before extending local materialization or enabling planner `--write-cache`?
-- What minimum writer behavior is needed: `--category` / `--source`, HTTPS GitHub allowlist, safe refs, resolved commit recording, no hooks, no submodules, no package installs, no repo script execution, symlink rejection, scoped file limits, atomic writes, rollback/cleanup, and cache provenance?
+- What minimum writer behavior is needed: `--category` / `--source`, HTTPS GitHub allowlist, safe refs, resolved commit recording, no hooks, no submodules, no package installs, no repo script execution, dirty cache cleanup, symlink/anchor rejection, scoped file limits, atomic writes, partial-failure reporting, rollback/cleanup, and cache provenance?
 - Should future write-cache artifacts use separate schema versions rather than weakening the current dry-run schema where clone/fetch must be false?
 - If graphify is part of the target for every registered repo, do all four sources have explicit graph scope, graph artifact paths, graph refresh policy, and graph validation rules?
 - What tests and validators are required before trusting local cache or graph artifacts: fixture git repos, malicious URLs, unsafe refs, path traversal, symlink escapes, oversized repos, graph scope escape, stale manifest refresh, interrupted writes, and `--require-local-cache` checks?

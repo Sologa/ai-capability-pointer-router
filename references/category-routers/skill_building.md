@@ -18,7 +18,7 @@ sources:
 
 ## Materialization Decision
 
-選定 `skill_building` category 後，若問題需要 current repo evidence 或 local cache，執行 `scripts/local_refresh_repos.py --category skill_building` 來 refresh 本 category 的 sources。up-to-date source 只做 remote HEAD check，不 fetch/reset，也不重建 graph。只有以下情境才回傳 materialization decision 或讀取 local worktree raw files；`scripts/materialize_repo_pointer.py` 仍只做 dry-run planning，不能 `--write-cache`：
+選定 `skill_building` category 後，若問題需要 current repo evidence 或 local cache，執行 `scripts/local_refresh_repos.py --category skill_building` 來 refresh 本 category 的 sources。clean up-to-date source 只做 remote HEAD check，不 fetch/reset，也不重建 graph；dirty cache 會不 fetch 但 reset/clean 並重建 locator artifacts。只有以下情境才回傳 materialization decision 或讀取 local worktree raw files；`scripts/materialize_repo_pointer.py` 仍只做 dry-run planning，不能 `--write-cache`：
 
 - 使用者要求 current/latest repo behavior。
 - 需要比較多個 anchor file 的實作細節。

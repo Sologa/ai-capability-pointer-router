@@ -68,7 +68,7 @@ python scripts/local_refresh_repos.py \
   --source agentskills-agentskills
 ```
 
-The script clones missing repos. For an existing worktree, it first checks remote HEAD; if the recorded local commit is already current, it skips fetch/reset. Graph artifacts are also skipped when the commit, graph scope, route index, and graph writer version are unchanged. Outputs stay under:
+The script clones missing repos. For an existing worktree, it first checks remote HEAD. If the recorded local commit is current and the cache is clean, it skips fetch/reset; if the local cache is dirty, it resets/cleans without fetching. Graph artifacts are skipped only when the commit, graph scope, route index, and graph writer version are unchanged. Outputs stay under:
 
 ```text
 temp_artifact/repo_pointer_router_cache/repos/<source_id>/
@@ -83,7 +83,7 @@ temp_artifact/repo_pointer_router_cache/repos/<source_id>/
 
 `temp_artifact/` and `graphify-out/` are git-ignored. These local clones and graph outputs must not be committed or pushed.
 
-After refresh, agents should read selected raw files from `temp_artifact/repo_pointer_router_cache/repos/<source_id>/worktree/` before falling back to live upstream raw files. If a refresh fails, answer from live upstream only when explicitly checked, and state the local refresh failure.
+After refresh, agents should read selected raw files from `temp_artifact/repo_pointer_router_cache/repos/<source_id>/worktree/` before falling back to live upstream raw files. Local refresh validates `read_first` and route-index anchors as regular in-worktree files before treating them as locators. If a category refresh partially fails, successful source results are still merged into the manifest index, and the command reports structured failures with a non-zero exit code. If a refresh fails, answer from live upstream only when explicitly checked, and state the local refresh failure.
 
 Graphify boundary: the local refresh script writes deterministic locator graph artifacts under `graphify-out/`. These artifacts are schema-compatible locators, not semantic evidence. Full semantic graphify for docs/papers/images still requires `/graphify` skill execution with subagents or a future non-agent graphify CLI; the script writes `graphify-out/needs_semantic_graphify` when that semantic pass is still needed.
 

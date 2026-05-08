@@ -181,13 +181,50 @@ def remote_head(repo_url: str, ref: str) -> str:
     return commit
 
 
+def harden_worktree_config(worktree: Path) -> None:
+    run(["git", "-C", str(worktree), "config", "core.hooksPath", "/dev/null"])
+    run(["git", "-C", str(worktree), "config", "submodule.recurse", "false"])
+
+
+def status_lines(worktree: Path) -> list[str]:
+    output = run(["git", "-C", str(worktree), "status", "--porcelain=v1", "--untracked-files=all"])
+    return [line for line in output.splitlines() if line.strip()]
+
+
+def status_path(line: str) -> str:
+    path = line[3:] if len(line) > 3 else ""
+    if " -> " in path:
+        path = path.split(" -> ", 1)[1]
+    return path.strip().strip('"')
+
+
+def is_generated_status_line(line: str) -> bool:
+    path = status_path(line)
+    return path == "graphify-out" or path.startswith("graphify-out/")
+
+
+def worktree_dirty_outside_generated(worktree: Path) -> bool:
+    return any(not is_generated_status_line(line) for line in status_lines(worktree))
+
+
 def clone_or_refresh(source_id: str, repo_url: str, worktree: Path, ref: str, *, force: bool = False) -> dict:
     worktree.parent.mkdir(parents=True, exist_ok=True)
     if (worktree / ".git").is_dir():
+        harden_worktree_config(worktree)
         run(["git", "-C", str(worktree), "remote", "set-url", "origin", repo_url])
         local_commit = run(["git", "-C", str(worktree), "rev-parse", "HEAD"])
         remote_commit = remote_head(repo_url, ref)
         if not force and local_commit == remote_commit:
+            if worktree_dirty_outside_generated(worktree):
+                run(["git", "-C", str(worktree), "reset", "--hard"])
+                clean_worktree(worktree)
+                commit = run(["git", "-C", str(worktree), "rev-parse", "HEAD"])
+                return {
+                    "action": "up_to_date_cleaned",
+                    "resolved_commit": commit,
+                    "remote_commit": remote_commit,
+                    "fetch_performed": False,
+                }
             return {
                 "action": "up_to_date",
                 "resolved_commit": local_commit,
@@ -203,6 +240,7 @@ def clone_or_refresh(source_id: str, repo_url: str, worktree: Path, ref: str, *,
             shutil.rmtree(worktree)
         action = "clone"
         run(["git", "-c", "core.hooksPath=/dev/null", "clone", "--no-recurse-submodules", repo_url, str(worktree)])
+        harden_worktree_config(worktree)
         run(["git", "-C", str(worktree), "fetch", "--prune", "origin", ref])
 
     run(["git", "-C", str(worktree), "checkout", "--force", "-B", ref, f"origin/{ref}"])
@@ -223,6 +261,55 @@ def clone_or_refresh(source_id: str, repo_url: str, worktree: Path, ref: str, *,
         "remote_commit": commit,
         "fetch_performed": True,
     }
+
+
+def source_anchor_paths(source: dict) -> list[str]:
+    anchors: list[str] = []
+    read_first = source.get("read_first")
+    if isinstance(read_first, list):
+        anchors.extend(path for path in read_first if isinstance(path, str))
+    route_index = source.get("route_index")
+    if isinstance(route_index, dict):
+        for route_anchors in route_index.values():
+            if isinstance(route_anchors, list):
+                anchors.extend(path for path in route_anchors if isinstance(path, str))
+    unique: list[str] = []
+    seen: set[str] = set()
+    for path in anchors:
+        if path in seen:
+            continue
+        seen.add(path)
+        unique.append(path)
+    return unique
+
+
+def validate_anchor_path(path: str) -> None:
+    pure = PurePosixPath(path)
+    if pure.is_absolute() or ".." in pure.parts or "\\" in path:
+        raise RefreshError(f"anchor path must be a safe relative POSIX path: {path}")
+
+
+def validate_source_anchor_paths(source: dict) -> None:
+    for anchor in source_anchor_paths(source):
+        validate_anchor_path(anchor)
+
+
+def validate_source_anchors(source_id: str, source: dict, worktree: Path) -> dict:
+    worktree_resolved = worktree.resolve()
+    checked: list[str] = []
+    for anchor in source_anchor_paths(source):
+        validate_anchor_path(anchor)
+        full = worktree / anchor
+        if full.is_symlink():
+            raise RefreshError(f"{source_id}: anchor must be a regular file, not symlink: {anchor}")
+        try:
+            full.resolve().relative_to(worktree_resolved)
+        except ValueError as exc:
+            raise RefreshError(f"{source_id}: anchor escapes worktree: {anchor}") from exc
+        if not full.is_file():
+            raise RefreshError(f"{source_id}: anchor must exist as a regular file: {anchor}")
+        checked.append(anchor)
+    return {"checked": checked, "count": len(checked)}
 
 
 def build_route_index_artifact(source_id: str, source: dict, resolved_commit: str) -> dict:
@@ -481,6 +568,7 @@ def refresh_source(skill_root: Path, registry: dict, source_id: str, *, force: b
     graph = materialization.get("graph")
     if not isinstance(graph, dict) or graph.get("mode") != "locator_only":
         raise RefreshError(f"{source_id}: graph.mode must be locator_only")
+    validate_source_anchor_paths(source)
 
     defaults = registry.get("materialization_defaults", {})
     allowlist = defaults.get("host_allowlist", ["github.com"])
@@ -502,6 +590,7 @@ def refresh_source(skill_root: Path, registry: dict, source_id: str, *, force: b
 
     git_state = clone_or_refresh(source_id, repo_url, worktree, ref, force=force)
     resolved_commit = git_state["resolved_commit"]
+    anchor_validation = validate_source_anchors(source_id, source, worktree)
     now = datetime.now(timezone.utc).isoformat()
 
     safety = {
@@ -529,6 +618,7 @@ def refresh_source(skill_root: Path, registry: dict, source_id: str, *, force: b
         "action": git_state["action"],
         "updated_at": now,
         "worktree_path": relative_cache_path(worktree, skill_root),
+        "anchor_validation": anchor_validation,
         "safety": safety,
     }
 
@@ -558,6 +648,7 @@ def refresh_source(skill_root: Path, registry: dict, source_id: str, *, force: b
         "manifest": manifest_path,
         "git_state": relative_cache_path(repo_dir / "git_state.json", skill_root),
         "route_index": relative_cache_path(repo_dir / "route_index.json", skill_root),
+        "anchor_validation": anchor_validation,
         "graphify": graph_status,
     }
 
@@ -617,6 +708,24 @@ def merge_manifest_index(index_path: Path, results: list[dict]) -> None:
     )
 
 
+def refresh_sources(
+    skill_root: Path,
+    registry: dict,
+    selected: list[str],
+    *,
+    force: bool = False,
+    force_graph: bool = False,
+) -> tuple[list[dict], list[dict]]:
+    results: list[dict] = []
+    failures: list[dict] = []
+    for source_id in selected:
+        try:
+            results.append(refresh_source(skill_root, registry, source_id, force=force, force_graph=force_graph))
+        except (OSError, RefreshError, subprocess.SubprocessError) as exc:
+            failures.append({"source_id": source_id, "error": str(exc)})
+    return results, failures
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Refresh local repo cache and graphify outputs.")
     parser.add_argument("--registry", default="references/route-registry.yaml")
@@ -636,10 +745,7 @@ def main(argv: list[str] | None = None) -> int:
         selected = selected_sources(registry, args.category, args.source)
         if not selected:
             raise RefreshError("choose at least one --category or --source")
-        results = [
-            refresh_source(skill_root, registry, source_id, force=args.force, force_graph=args.force_graph)
-            for source_id in selected
-        ]
+        results, failures = refresh_sources(skill_root, registry, selected, force=args.force, force_graph=args.force_graph)
         index_path = safe_cache_path(
             skill_root,
             registry.get("materialization_defaults", {}).get(
@@ -649,8 +755,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         index_path.parent.mkdir(parents=True, exist_ok=True)
         merge_manifest_index(index_path, results)
-        print(json.dumps({"status": "local_refresh_complete", "results": results}, indent=2, ensure_ascii=False))
-        return 0
+        status = "local_refresh_complete" if not failures else "local_refresh_partial_failure"
+        print(json.dumps({"status": status, "results": results, "failures": failures}, indent=2, ensure_ascii=False))
+        return 0 if not failures else 1
     except (OSError, RefreshError, yaml.YAMLError, subprocess.SubprocessError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1

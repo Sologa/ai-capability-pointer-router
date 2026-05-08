@@ -2,7 +2,7 @@
 
 materialization 有兩條路徑：category/source-scoped local refresh，以及只讀 dry-run planner。local refresh 不再 refresh 全 registry；root 選定 category 後才 refresh 該 category 的 sources，深讀 worktree 仍然是 lazy 的，只在 source card/anchor 選定後進行。
 
-**Current local status:** `scripts/local_refresh_repos.py --category <route_id>` 會處理該 category 的 sources；`--source <source_id>` 會處理單一 source。missing repo 會 clone；existing worktree 會先做 remote HEAD freshness check。若 local commit 已是最新，腳本不 fetch/reset，也不重建 graph。若 remote commit、graph scope、route index 或 graph writer version 改變，才更新 local-only manifest / git_state / route_index / graph artifacts。所有產物都在 git-ignored `temp_artifact/repo_pointer_router_cache/`，不得 push。
+**Current local status:** `scripts/local_refresh_repos.py --category <route_id>` 會處理該 category 的 sources；`--source <source_id>` 會處理單一 source。missing repo 會 clone；existing worktree 會先做 remote HEAD freshness check。若 local commit 已是最新且 cache clean，腳本不 fetch/reset，也不重建 graph。若 local commit 最新但 cache dirty，腳本不 fetch，但會 reset/clean 並重建 locator artifacts。若 remote commit、graph scope、route index 或 graph writer version 改變，才更新 local-only manifest / git_state / route_index / graph artifacts。所有產物都在 git-ignored `temp_artifact/repo_pointer_router_cache/`，不得 push。
 
 **Current planner status:** `scripts/materialize_repo_pointer.py --dry-run` 只輸出計劃；non-dry-run / `--write-cache` 仍明確拒絕執行。`implementation_status: local_refresh_enabled` 指 local refresh script 已啟用，不代表 dry-run planner 可以 write cache。
 
@@ -33,7 +33,7 @@ materialization 有兩條路徑：category/source-scoped local refresh，以及�
 
 ## Safety
 
-script 不得自動執行 package install、repo scripts、hooks、submodules 或任意 build。graph/index 都是 locator only，不是 evidence。cache 位置維持在 `temp_artifact/repo_pointer_router_cache/`，且必須保持 git-ignored。
+script 不得自動執行 package install、repo scripts、hooks、submodules 或任意 build。existing worktree refresh 必須強制 `core.hooksPath=/dev/null`、`submodule.recurse=false`。`read_first` 與 route-index anchors 必須驗證為 worktree 內 regular files，不能是 symlink 或逃逸路徑。graph/index 都是 locator only，不是 evidence。cache 位置維持在 `temp_artifact/repo_pointer_router_cache/`，且必須保持 git-ignored。
 
 local refresh 使用 `git fetch --prune origin main` 加 `checkout -B main origin/main`，功能上等同把 cache 更新到 upstream `main`；文檔中若說 pull/latest，指的是這個 reset-to-origin-main 行為。
 

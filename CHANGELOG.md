@@ -9,7 +9,8 @@
 - Added Apache-2.0 licensing.
 - Added schema enforcement for the registry and dry-run plans, plus schemas for local-only materialization, route-index, and graph artifacts.
 - Hardened write-cache rejection so `--dry-run --write-cache` cannot succeed.
-- Added local-only `scripts/local_refresh_repos.py` to clone/fetch selected category/source repos into git-ignored `temp_artifact/`, write manifests/route indexes, and rebuild deterministic locator outputs only when commit/scope/schema inputs change.
+- Added local-only `scripts/local_refresh_repos.py` to clone/fetch selected category/source repos into git-ignored `temp_artifact/`, write manifests/route indexes, and rebuild deterministic locator outputs only when commit/scope/route-index/writer-version inputs change.
+- Hardened local refresh for dirty up-to-date cache cleanup without fetch, existing worktree hook/submodule config, regular-file anchor validation, and partial category failure index merging.
 - Added structured router/source-card metadata checks, explicit `implementation_status: local_refresh_enabled`, and design docs for local refresh plus graph scope boundaries.
 
 This remains a staged draft: it is not runtime-installed by default, generated cache/graph artifacts are not committed, and planner `--write-cache` remains intentionally unimplemented.

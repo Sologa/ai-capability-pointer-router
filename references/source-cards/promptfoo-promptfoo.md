@@ -70,7 +70,7 @@ do_not_use_for:
 
 ## Materialization
 
-使用 `materialize_and_graph_on_first_use`。選定 `eval_benchmark` category 或本 source 後，用 `scripts/local_refresh_repos.py --category eval_benchmark` 或 `--source promptfoo-promptfoo` 將本 repo clone/refresh 到本地 git-ignored cache。up-to-date 時不 fetch/reset，也不重建 locator graph；commit、scope、route index 或 graph writer version 改變時才重建 graphify-out locator artifacts / semantic-needed marker。graph scope 僅限 `site/docs`、`examples`、`plugins/promptfoo/skills`，且 graph 仍是 locator only。需要 eval/redteam/provider/CI current behavior 時，優先讀本地 worktree 的 raw files 和 `graphify-out/` locators。
+使用 `materialize_and_graph_on_first_use`。選定 `eval_benchmark` category 或本 source 後，用 `scripts/local_refresh_repos.py --category eval_benchmark` 或 `--source promptfoo-promptfoo` 將本 repo clone/refresh 到本地 git-ignored cache。clean up-to-date 時不 fetch/reset，也不重建 locator graph；dirty cache 會不 fetch 但 reset/clean 並重建 locator artifacts；commit、scope、route index 或 graph writer version 改變時才重建 graphify-out locator artifacts / semantic-needed marker。graph scope 僅限 `site/docs`、`examples`、`plugins/promptfoo/skills`，且 graph 仍是 locator only。需要 eval/redteam/provider/CI current behavior 時，優先讀本地 worktree 的 raw files 和 `graphify-out/` locators。
 
 Manifest locator: `temp_artifact/repo_pointer_router_cache/repos/promptfoo-promptfoo/materialization.json`
 Local worktree: `temp_artifact/repo_pointer_router_cache/repos/promptfoo-promptfoo/worktree`
