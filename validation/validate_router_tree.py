@@ -346,13 +346,13 @@ def validate_materialization_defaults(registry: dict, errors: list[str]) -> None
             errors,
         )
         require(
-            local_refresh.get("invocation_policy") == "refresh_all_on_skill_invocation",
-            "local_refresh.invocation_policy must be refresh_all_on_skill_invocation",
+            local_refresh.get("invocation_policy") == "refresh_selected_category_on_category_selection",
+            "local_refresh.invocation_policy must be refresh_selected_category_on_category_selection",
             errors,
         )
         require(
-            local_refresh.get("source_scope") == "all_registry_sources",
-            "local_refresh.source_scope must be all_registry_sources",
+            local_refresh.get("source_scope") == "selected_category_sources_or_explicit_source",
+            "local_refresh.source_scope must be selected_category_sources_or_explicit_source",
             errors,
         )
         require(
@@ -597,10 +597,11 @@ def validate_root_files(root: Path, errors: list[str]) -> None:
         errors,
     )
     require(
-        "scripts/local_refresh_repos.py" in skill_text and "--all" in skill_text,
-        "SKILL.md must require local refresh on skill invocation",
+        "scripts/local_refresh_repos.py" in skill_text and "--category" in skill_text,
+        "SKILL.md must describe category-scoped local refresh",
         errors,
     )
+    require("--all" not in skill_text, "SKILL.md must not require all-source local refresh", errors)
     require(
         "temp_artifact/repo_pointer_router_cache" in skill_text,
         "SKILL.md must name the local materialization cache path",
@@ -685,6 +686,8 @@ def validate_source_card_content(source_id: str, card_path: Path, source: dict, 
 def validate_source_card_frontmatter(source_id: str, frontmatter: dict, source: dict, errors: list[str]) -> None:
     missing = sorted(REQUIRED_SOURCE_CARD_FRONTMATTER_FIELDS - set(frontmatter))
     require(not missing, f"{source_id}: source card frontmatter missing fields: {', '.join(missing)}", errors)
+    extra = sorted(set(frontmatter) - REQUIRED_SOURCE_CARD_FRONTMATTER_FIELDS)
+    require(not extra, f"{source_id}: source card frontmatter has unsupported fields: {', '.join(extra)}", errors)
 
     materialization = source.get("materialization") if isinstance(source.get("materialization"), dict) else {}
     graph = materialization.get("graph") if isinstance(materialization.get("graph"), dict) else {}

@@ -20,8 +20,8 @@ materialization_defaults:
   local_refresh:
     enabled: true
     script: "scripts/local_refresh_repos.py"
-    invocation_policy: "refresh_all_on_skill_invocation"
-    source_scope: "all_registry_sources"
+    invocation_policy: "refresh_selected_category_on_category_selection"
+    source_scope: "selected_category_sources_or_explicit_source"
     artifact_policy: "local_only_gitignored"
     graphify_policy:
       deterministic_locator_graph: true
@@ -110,7 +110,7 @@ sources:
       graph:
         enabled: true
         mode: "locator_only"
-        rebuild_policy: "on_skill_invocation_local_refresh"
+        rebuild_policy: "on_commit_scope_route_index_or_writer_version_change"
         scope:
           include:
             - "README.md"
@@ -176,7 +176,7 @@ sources:
       graph:
         enabled: true
         mode: "locator_only"
-        rebuild_policy: "on_skill_invocation_local_refresh"
+        rebuild_policy: "on_commit_scope_route_index_or_writer_version_change"
         scope:
           include:
             - "README.md"
@@ -246,7 +246,7 @@ sources:
       graph:
         enabled: true
         mode: "locator_only"
-        rebuild_policy: "on_skill_invocation_local_refresh"
+        rebuild_policy: "on_commit_scope_route_index_or_writer_version_change"
         scope:
           include:
             - "README.md"
@@ -331,7 +331,7 @@ sources:
       graph:
         enabled: true
         mode: "locator_only"
-        rebuild_policy: "on_skill_invocation_local_refresh"
+        rebuild_policy: "on_commit_scope_route_index_or_writer_version_change"
         scope:
           include:
             - "site/docs"

@@ -237,10 +237,10 @@
           "const": "scripts/local_refresh_repos.py"
         },
         "invocation_policy": {
-          "const": "refresh_all_on_skill_invocation"
+          "const": "refresh_selected_category_on_category_selection"
         },
         "source_scope": {
-          "const": "all_registry_sources"
+          "const": "selected_category_sources_or_explicit_source"
         },
         "artifact_policy": {
           "const": "local_only_gitignored"

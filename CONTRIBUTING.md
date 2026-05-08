@@ -21,7 +21,7 @@ python validation/check_upstream_anchors.py references/route-registry.yaml --ref
 For local cache / graph refresh checks:
 
 ```sh
-python scripts/local_refresh_repos.py --registry references/route-registry.yaml --all
+python scripts/local_refresh_repos.py --registry references/route-registry.yaml --category <route_id>
 ```
 
 ## Add a Source

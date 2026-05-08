@@ -56,6 +56,75 @@ def write_registry(root: Path, data: dict) -> None:
         yaml.safe_dump(data, handle, allow_unicode=True, sort_keys=False)
 
 
+def run_git(repo: Path, *args: str) -> str:
+    proc = subprocess.run(
+        ["git", "-C", str(repo), *args],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise AssertionError(proc.stderr or proc.stdout)
+    return proc.stdout.strip()
+
+
+def create_fixture_git_repo(root: Path) -> Path:
+    repo = root / "remote"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-b", "main", str(repo)], text=True, capture_output=True, check=True)
+    (repo / "README.md").write_text("# Fixture\n", encoding="utf-8")
+    run_git(repo, "add", "README.md")
+    run_git(repo, "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "initial")
+    return repo
+
+
+def fixture_registry(repo: Path) -> dict:
+    repo_url = str(repo)
+    return {
+        "materialization_defaults": {
+            "cache_root": "temp_artifact/repo_pointer_router_cache",
+            "manifest_index": "temp_artifact/repo_pointer_router_cache/indexes/repo-materialization-index.jsonl",
+            "host_allowlist": ["github.com"],
+        },
+        "routes": {
+            "fixture_route": {
+                "route_id": "fixture_route",
+                "sources": ["fixture-source"],
+            }
+        },
+        "sources": {
+            "fixture-source": {
+                "source_id": "fixture-source",
+                "repo": repo_url,
+                "repo_url": repo_url,
+                "category": "fixture_route",
+                "materialization": {
+                    "mode": "materialize_on_first_use",
+                    "strategy": "git_clone_fetch_checkout",
+                    "implementation_status": "local_refresh_enabled",
+                    "repo_url": repo_url,
+                    "default_ref": "main",
+                    "allowed_refs": ["main"],
+                    "pin_policy": "record_resolved_commit",
+                    "update_policy": "fetch_latest_on_explicit_use",
+                    "manifest": {
+                        "path": "temp_artifact/repo_pointer_router_cache/repos/fixture-source/materialization.json"
+                    },
+                    "graph": {
+                        "enabled": True,
+                        "mode": "locator_only",
+                        "scope": {"include": ["README.md"], "exclude": [".git", "graphify-out"]},
+                    },
+                    "max_files": 10,
+                    "max_bytes": 100000,
+                },
+                "read_first": ["README.md"],
+                "route_index": {"fixture-source/readme": ["README.md"]},
+            }
+        },
+    }
+
+
 class RouterTreeValidationTests(unittest.TestCase):
     def run_validator(self, root: Path) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -362,6 +431,19 @@ class RouterTreeValidationTests(unittest.TestCase):
             self.assertNotEqual(proc.returncode, 0)
             self.assertIn("schema violation", proc.stderr)
 
+    def test_old_refresh_all_policy_fails(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            registry["materialization_defaults"]["local_refresh"][
+                "invocation_policy"
+            ] = "refresh_all_on_skill_invocation"
+            registry["materialization_defaults"]["local_refresh"]["source_scope"] = "all_registry_sources"
+            write_registry(root, registry)
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("refresh_selected_category_on_category_selection", proc.stderr)
+
     def test_route_index_wrong_source_prefix_fails(self) -> None:
         with copy_repo() as temp:
             root = Path(temp) / "skill"
@@ -448,6 +530,61 @@ class RouterTreeValidationTests(unittest.TestCase):
             with self.assertRaisesRegex(module.RefreshError, "max_bytes must be a positive integer"):
                 module.refresh_source(root, registry, "promptfoo-promptfoo")
 
+    def test_local_refresh_rejects_all_argument(self) -> None:
+        module = self.import_local_refresh()
+        with self.assertRaises(SystemExit):
+            module.parse_args(["--all"])
+
+    def test_local_refresh_category_selects_only_route_sources(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            module = self.import_local_refresh()
+            self.assertEqual(
+                module.selected_sources(registry, ["eval_benchmark"], None),
+                ["promptfoo-promptfoo"],
+            )
+            self.assertEqual(
+                module.selected_sources(registry, ["skill_building"], ["promptfoo-promptfoo"]),
+                ["agentskills-agentskills", "openai-skills", "vercel-labs-skills", "promptfoo-promptfoo"],
+            )
+
+    def test_local_refresh_source_integration_skips_fetch_and_graph_when_up_to_date(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "skill"
+            root.mkdir()
+            repo = create_fixture_git_repo(Path(temp))
+            registry = fixture_registry(repo)
+            module = self.import_local_refresh()
+            with mock.patch.object(module, "validate_repo_url", return_value=None):
+                first = module.refresh_source(root, registry, "fixture-source")
+                second = module.refresh_source(root, registry, "fixture-source")
+            self.assertEqual(first["action"], "clone")
+            self.assertEqual(second["action"], "up_to_date")
+            self.assertFalse(second["fetch_performed"])
+            self.assertEqual(second["graphify"]["status"], "graph_up_to_date")
+            self.assertTrue((root / "temp_artifact/repo_pointer_router_cache/repos/fixture-source/worktree/graphify-out/graph.json").is_file())
+            self.assertTrue((root / "temp_artifact/repo_pointer_router_cache/repos/fixture-source/worktree/graphify-out/graph_report.json").is_file())
+
+    def test_local_refresh_source_integration_fetches_when_remote_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "skill"
+            root.mkdir()
+            repo = create_fixture_git_repo(Path(temp))
+            registry = fixture_registry(repo)
+            module = self.import_local_refresh()
+            with mock.patch.object(module, "validate_repo_url", return_value=None):
+                first = module.refresh_source(root, registry, "fixture-source")
+                (repo / "README.md").write_text("# Fixture\n\nChanged\n", encoding="utf-8")
+                run_git(repo, "add", "README.md")
+                run_git(repo, "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "change")
+                second = module.refresh_source(root, registry, "fixture-source")
+            self.assertEqual(first["action"], "clone")
+            self.assertEqual(second["action"], "refresh")
+            self.assertTrue(second["fetch_performed"])
+            self.assertNotEqual(first["resolved_commit"], second["resolved_commit"])
+            self.assertEqual(second["graphify"]["status"], "locator_graph_updated")
+
     def test_dry_run_plans_match_materialization_plan_schema(self) -> None:
         with copy_repo() as temp:
             root = Path(temp) / "skill"
@@ -508,6 +645,56 @@ class RouterTreeValidationTests(unittest.TestCase):
             schema = json.loads((root / "schemas/route-index-artifact.schema.json").read_text(encoding="utf-8"))
             validator = Draft202012Validator(schema, format_checker=FormatChecker())
             self.assertEqual(list(validator.iter_errors(artifact)), [])
+
+    def test_graph_artifacts_match_schemas_and_skip_when_current(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            source = registry["sources"]["agentskills-agentskills"]
+            worktree = Path(temp) / "worktree"
+            (worktree / "docs").mkdir(parents=True)
+            (worktree / "skills-ref").mkdir()
+            (worktree / "README.md").write_text("# Agentskills\n", encoding="utf-8")
+            (worktree / "docs/specification.mdx").write_text("# Spec\n", encoding="utf-8")
+            (worktree / "skills-ref/README.md").write_text("# Ref\n", encoding="utf-8")
+            module = self.import_local_refresh()
+            first = module.run_graphify_code(
+                "agentskills-agentskills",
+                source,
+                worktree,
+                source["materialization"],
+                "a" * 40,
+            )
+            second = module.run_graphify_code(
+                "agentskills-agentskills",
+                source,
+                worktree,
+                source["materialization"],
+                "a" * 40,
+            )
+            self.assertEqual(first["status"], "locator_graph_updated")
+            self.assertEqual(second["status"], "graph_up_to_date")
+            graph = json.loads((worktree / "graphify-out/graph.json").read_text(encoding="utf-8"))
+            report = json.loads((worktree / "graphify-out/graph_report.json").read_text(encoding="utf-8"))
+            graph_schema = json.loads((root / "schemas/locator-graph.schema.json").read_text(encoding="utf-8"))
+            report_schema = json.loads((root / "schemas/graph-report.schema.json").read_text(encoding="utf-8"))
+            self.assertEqual(
+                list(Draft202012Validator(graph_schema, format_checker=FormatChecker()).iter_errors(graph)),
+                [],
+            )
+            self.assertEqual(
+                list(Draft202012Validator(report_schema, format_checker=FormatChecker()).iter_errors(report)),
+                [],
+            )
+
+    def test_manifest_index_merge_preserves_unselected_sources(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "index.jsonl"
+            path.write_text(json.dumps({"source_id": "old-source", "action": "up_to_date"}) + "\n", encoding="utf-8")
+            module = self.import_local_refresh()
+            module.merge_manifest_index(path, [{"source_id": "new-source", "action": "refresh"}])
+            rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+            self.assertEqual({row["source_id"] for row in rows}, {"old-source", "new-source"})
 
     def test_anchor_report_schema_accepts_mocked_checker_output(self) -> None:
         with copy_repo() as temp:

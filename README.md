@@ -50,17 +50,25 @@ python -m unittest discover -s tests
 
 Optional: run your local Codex or Agent Skills shape validator if it is installed. The portable validator for this repo is `python validation/validate_router_tree.py .`.
 
-## Invocation Local Refresh
+## Scoped Local Refresh
 
-When this skill is invoked, the first operational step is to refresh all registered repos locally:
+The runtime path is category-scoped, not all-source. After the root selects a category, refresh only that category's sources:
 
 ```sh
 python scripts/local_refresh_repos.py \
   --registry references/route-registry.yaml \
-  --all
+  --category skill_building
 ```
 
-This command clones missing repos, fetches/prunes `origin main`, resets each local worktree to `origin/main`, writes local-only manifests and route indexes, and rebuilds graphify outputs that can run without semantic subagents. Outputs stay under:
+For one repo, use the narrower source-scoped path:
+
+```sh
+python scripts/local_refresh_repos.py \
+  --registry references/route-registry.yaml \
+  --source agentskills-agentskills
+```
+
+The script clones missing repos. For an existing worktree, it first checks remote HEAD; if the recorded local commit is already current, it skips fetch/reset. Graph artifacts are also skipped when the commit, graph scope, route index, and graph writer version are unchanged. Outputs stay under:
 
 ```text
 temp_artifact/repo_pointer_router_cache/repos/<source_id>/
@@ -69,17 +77,19 @@ temp_artifact/repo_pointer_router_cache/repos/<source_id>/
   route_index.json
   worktree/
     graphify-out/
+      graph.json
+      graph_report.json
 ```
 
 `temp_artifact/` and `graphify-out/` are git-ignored. These local clones and graph outputs must not be committed or pushed.
 
 After refresh, agents should read selected raw files from `temp_artifact/repo_pointer_router_cache/repos/<source_id>/worktree/` before falling back to live upstream raw files. If a refresh fails, answer from live upstream only when explicitly checked, and state the local refresh failure.
 
-Graphify boundary: the local refresh script rebuilds a deterministic graphify locator graph through the installed graphify Python package. Full semantic graphify for docs/papers/images still requires `/graphify` skill execution with subagents or a future non-agent graphify CLI; the script writes `graphify-out/needs_semantic_graphify` when that semantic pass is still needed.
+Graphify boundary: the local refresh script writes deterministic locator graph artifacts under `graphify-out/`. These artifacts are schema-compatible locators, not semantic evidence. Full semantic graphify for docs/papers/images still requires `/graphify` skill execution with subagents or a future non-agent graphify CLI; the script writes `graphify-out/needs_semantic_graphify` when that semantic pass is still needed.
 
 ## Dry-Run Materialization Planner
 
-The planner remains read-only. It prints the declared manifest, worktree, route-index, and graph plan, but it does not clone, fetch, install packages, run hooks, run repo scripts, or write cache. Use `scripts/local_refresh_repos.py --all` for the accepted local-only refresh path.
+The planner remains read-only. It prints the declared manifest, worktree, route-index, and graph plan, but it does not clone, fetch, install packages, run hooks, run repo scripts, or write cache. Use `scripts/local_refresh_repos.py --category <route_id>` or `--source <source_id>` for the accepted local-only refresh path.
 
 ```sh
 python scripts/materialize_repo_pointer.py \

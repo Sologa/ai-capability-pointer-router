@@ -4,8 +4,8 @@ Graph artifacts are local-only locator artifacts. They are generated under git-i
 
 ## Current Status
 
-- `scripts/local_refresh_repos.py` refreshes each registered repo and writes worktree-local `graphify-out/` status/artifacts.
-- Deterministic graphify locator graph rebuild is automated within the declared scope and budget.
+- `scripts/local_refresh_repos.py` refreshes selected category/source repos and writes worktree-local `graphify-out/` status/artifacts.
+- Deterministic locator graph rebuild is automated within the declared scope and budget, and is skipped when commit, scope, route index, and graph writer version are unchanged.
 - Docs/papers/images semantic graphify is not context-free in the currently installed graphify package; those files require `/graphify` skill / subagents or a future non-agent graphify CLI.
 - No generated graph JSON, graph report, scope expansion, or coverage report is committed or published.
 - `schemas/locator-graph.schema.json` and `schemas/graph-report.schema.json` are local artifact contracts.
@@ -35,7 +35,7 @@ Any graph builder or refresh script must:
 - keep graph nodes locator-only;
 - avoid storing behavioral summaries as factual evidence;
 - validate graph output against `schemas/locator-graph.schema.json`;
-- validate the graph report against `schemas/graph-report.schema.json`;
-- rebuild when commit, scope, or graph schema version changes.
+- validate `graphify-out/graph_report.json` against `schemas/graph-report.schema.json`;
+- rebuild when commit, scope, route index, or graph writer version changes.
 
 If graphify is enabled for additional registered repos, each source must have explicit include/exclude scope, file/byte limits, graph artifact path, refresh policy, and validation coverage before any graph-complete claim.

@@ -15,7 +15,7 @@ The writer must never execute upstream code.
 The reviewed local refresh script supports explicit source selection:
 
 - `--source <source_id>` for one source;
-- `--all` only after the single-source path is tested.
+- category-scoped refresh only after the single-source path is tested.
 
 It must:
 
@@ -37,6 +37,7 @@ For each materialized source, the writer must produce locator-only artifacts:
 - `git_state.json`, recording requested ref, resolved commit, checkout status, and safety flags;
 - `route_index.json`, validated against `schemas/route-index-artifact.schema.json`;
 - graph artifacts only under the local worktree `graphify-out/`, never committed.
+- graph rebuilds must be skipped when commit, graph scope, route index, and graph writer version are unchanged.
 
 These artifacts locate raw files. They are not evidence for factual claims.
 
@@ -50,6 +51,7 @@ Before extending local refresh or enabling planner `--write-cache`, add validato
 - no symlink escape from the worktree;
 - no generated artifact committed accidentally;
 - `--require-local-cache` checks for expected worktree, manifest, git state, and route index;
+- manifest-index writes merge selected-source results instead of truncating unrelated cached sources;
 - graph scope coverage and file/byte budget reports when graph is enabled.
 
 ## Required Tests
