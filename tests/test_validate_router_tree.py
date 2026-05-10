@@ -529,6 +529,18 @@ class RouterTreeValidationTests(unittest.TestCase):
             self.assertNotEqual(proc.returncode, 0)
             self.assertIn("unresolved template placeholder", proc.stderr)
 
+    def test_agent_metadata_rejects_placeholder(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            agent_metadata = root / "agents/openai.yaml"
+            agent_metadata.write_text(
+                agent_metadata.read_text(encoding="utf-8") + "\nnotes: \"<profile_name>\"\n",
+                encoding="utf-8",
+            )
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("unresolved template placeholder", proc.stderr)
+
     def test_registry_rejects_empty_paper_metadata(self) -> None:
         with copy_repo() as temp:
             root = Path(temp) / "skill"
@@ -569,6 +581,22 @@ class RouterTreeValidationTests(unittest.TestCase):
             proc = self.run_validator(root)
             self.assertNotEqual(proc.returncode, 0)
             self.assertIn("schema violation", proc.stderr)
+
+    def test_registry_rejects_materialized_repo_asset_that_differs_from_source_repo(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            registry["sources"]["promptfoo-promptfoo"]["paired_assets"] = [
+                {
+                    "kind": "repo",
+                    "locator": "https://github.com/openai/skills",
+                    "materialization_status": "materialized_source",
+                }
+            ]
+            write_registry(root, registry)
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("materialized repo locator must equal source.repo", proc.stderr)
 
     def test_registry_rejects_materialized_paper_asset(self) -> None:
         with copy_repo() as temp:

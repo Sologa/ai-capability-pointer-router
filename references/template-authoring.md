@@ -50,10 +50,12 @@ The registry schema also allows optional paper-facing source metadata. If these 
 - `topic_tags`: routing hints for the source.
 - `question_types`: one or more supported question types such as `implementation_detail`, `benchmark_setup`, or `method_mapping`.
 - `claim_scope`: what claims the source can support after raw-file verification.
-- `preferred_evidence_order`: validated evidence steps such as `local_refreshed_worktree` and `live_upstream_raw_file`.
-- `paired_assets`: non-materialized paper pointers and materialized GitHub repo pointers that belong together.
+- `preferred_evidence_order`: validated lookup steps such as `local_refreshed_worktree` and `live_upstream_raw_file`; locator/context values only order lookup and do not support factual claims by themselves.
+- `paired_assets`: non-materialized paper pointers and materialized GitHub repo pointers that belong together. A materialized repo asset must point to the same display URL as `source.repo`; related repos should use `external_pointer` or become separate sources.
 
 These fields describe the taxonomy. They do not change the current materializer, which still refreshes only GitHub repositories.
+
+Instantiated source cards should not use angle-bracket autolinks. The validator treats `<...>` as unresolved template placeholders outside `templates/`.
 
 ## Current Materialization Limits
 

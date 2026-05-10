@@ -186,7 +186,7 @@ def require(condition: bool, message: str, errors: list[str]) -> None:
 
 def validate_no_unresolved_placeholders(root: Path, errors: list[str]) -> None:
     paths: list[Path] = []
-    for rel_path in ("SKILL.md", "references/route-registry.yaml"):
+    for rel_path in ("SKILL.md", "agents/openai.yaml", "references/route-registry.yaml"):
         path = root / rel_path
         if path.is_file():
             paths.append(path)
@@ -462,6 +462,25 @@ def validate_materialization(source_id: str, source: dict, registry: dict, mater
         require(isinstance(value, int) and value > 0, f"{source_id}: {key} must be positive integer", errors)
 
 
+def validate_paired_assets(source_id: str, source: dict, errors: list[str]) -> None:
+    paired_assets = source.get("paired_assets")
+    if paired_assets is None:
+        return
+    if not isinstance(paired_assets, list):
+        return
+    for idx, asset in enumerate(paired_assets):
+        if not isinstance(asset, dict):
+            continue
+        if asset.get("kind") != "repo" or asset.get("materialization_status") != "materialized_source":
+            continue
+        locator = asset.get("locator")
+        require(
+            isinstance(locator, str) and locator == source.get("repo"),
+            f"{source_id}: paired_assets[{idx}] materialized repo locator must equal source.repo; use external_pointer for related repos",
+            errors,
+        )
+
+
 def source_anchor_paths(source: dict) -> list[str]:
     paths: list[str] = []
     for anchor in source.get("read_first") or []:
@@ -572,6 +591,7 @@ def validate_sources(root: Path, registry: dict, errors: list[str]) -> None:
         require(isinstance(materialization, dict), f"{source_id}: materialization must be a mapping", errors)
         if isinstance(materialization, dict):
             validate_materialization(source_id, source, registry, materialization, errors)
+        validate_paired_assets(source_id, source, errors)
         validate_route_index(source_id, source, errors)
 
     source_card_dir = root / "references/source-cards"

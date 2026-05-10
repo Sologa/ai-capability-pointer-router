@@ -32,4 +32,6 @@ python3 -m unittest discover -s tests
 
 The current scripts materialize GitHub repositories only. Paper PDFs, arXiv pages, Zenodo records, Hugging Face repos, GitLab repos, and local folders need schema and script changes before they become first-class materialized sources.
 
-The source template includes optional paper-facing metadata such as `paper`, `artifact_role`, `topic_tags`, `question_types`, `claim_scope`, `preferred_evidence_order`, and `paired_assets`. These fields document the paper/repo relationship, but only the GitHub repo anchors are materialized by the current refresh script. When present, the fields are schema-checked: paper metadata needs the full id/title/citation/URI set, materialized repo assets must point to GitHub display URLs, and paper assets cannot be marked as materialized sources.
+The source template includes optional paper-facing metadata such as `paper`, `artifact_role`, `topic_tags`, `question_types`, `claim_scope`, `preferred_evidence_order`, and `paired_assets`. These fields document the paper/repo relationship, but only the top-level GitHub repo anchor is materialized by the current refresh script. When present, the fields are checked: paper metadata needs the full id/title/citation/URI set, materialized repo assets must point to the same display URL as `source.repo`, and paper assets cannot be marked as materialized sources.
+
+Use plain Markdown links or code spans in instantiated source cards; angle-bracket autolinks such as `<https://github.com/...>` are reserved for template placeholders and will fail validation.
