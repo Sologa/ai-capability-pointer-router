@@ -1,0 +1,31 @@
+---
+route_id: <route_id>
+sources:
+  - <source_id>
+---
+
+# Category Router: `<route_id>`
+
+This router only performs second-layer routing. It does not answer repo or paper facts directly.
+
+## Use This Route For
+
+- <user intent or paper family>
+- <method, benchmark, implementation, or evaluation concern>
+
+## Do Not Use This Route For
+
+- <nearby but unsupported intent>
+- <cases that require another route>
+
+## Source Selection
+
+- `<source_id>`: <why this source belongs to this route>
+
+## Materialization Decision
+
+After selecting `<route_id>`, run `scripts/local_refresh_repos.py --category <route_id>` only when the question needs current repo evidence, cross-file behavior, or local cache. If the source card locators are enough to choose the next file, do not refresh broadly.
+
+## Evidence Boundary
+
+Source cards, route indexes, manifests, and graph outputs are locators only. Factual claims require reading raw upstream files or a refreshed local worktree at the final evidence step.

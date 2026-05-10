@@ -1,0 +1,69 @@
+  <source_id>:
+    source_id: "<source_id>"
+    repo: "https://github.com/<owner>/<repo>"
+    repo_url: "https://github.com/<owner>/<repo>.git"
+    category: "<route_id>"
+    source_card_path: "references/source-cards/<source_id>.md"
+    paper:
+      paper_id: "<paper_id>"
+      title: "<paper title>"
+      citation: "<citation or venue/year>"
+      url: "<paper_url>"
+    artifact_role: "<paper_code_repo|benchmark_release|reference_implementation|secondary_tooling>"
+    topic_tags:
+      - "<topic_tag>"
+    question_types:
+      - "<question_type>"
+    claim_scope: "<what claims this source can support after raw-file verification>"
+    preferred_evidence_order:
+      - "local_refreshed_worktree"
+      - "live_upstream_raw_file"
+    paired_assets:
+      - kind: "paper"
+        locator: "<paper_url_or_local_pointer>"
+        materialization_status: "non_materialized_context"
+      - kind: "repo"
+        locator: "https://github.com/<owner>/<repo>"
+        materialization_status: "materialized_source"
+    authority_level: "<paper_code_repo|benchmark_release|reference_implementation|secondary_tooling>"
+    refresh_sensitivity: "<low|medium|high|very_high>"
+    stale_after_hours: <hours>
+    last_verified:
+      date: "<YYYY-MM-DD>"
+      method: "github_raw_head"
+      checked_ref: "main"
+      checked_paths:
+        - "<path/from/repo/root>"
+    representation: "materialized_source_card_plus_on_demand_pointer"
+    materialization:
+      mode: "materialize_on_first_use"
+      strategy: "git_clone_fetch_checkout"
+      implementation_status: "local_refresh_enabled"
+      repo_url: "https://github.com/<owner>/<repo>.git"
+      default_ref: "main"
+      allowed_refs: ["main", "tags", "commit_sha"]
+      pin_policy: "record_resolved_commit"
+      update_policy: "fetch_latest_on_explicit_use"
+      manifest:
+        path: "temp_artifact/repo_pointer_router_cache/repos/<source_id>/materialization.json"
+      graph:
+        enabled: true
+        mode: "locator_only"
+        rebuild_policy: "on_commit_scope_route_index_writer_version_or_content_hash_change"
+        scope:
+          include:
+            - "<path/or/dir>"
+          exclude:
+            - ".git"
+            - "graphify-out"
+            - "**/.env*"
+            - "**/*secret*"
+      max_files: <positive_integer>
+      max_bytes: <positive_integer>
+    read_first:
+      - "<path/from/repo/root>"
+    route_index:
+      <source_id>/<local_route>:
+        - "<path/from/repo/root>"
+    do_not_use_for:
+      - "<unsupported_claim_or_task>"

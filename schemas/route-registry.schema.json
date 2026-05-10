@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Sologa/ai-capability-pointer-router/schemas/route-registry.schema.json",
-  "title": "AI Capability Pointer Router Registry",
+  "title": "Repo Taxonomy Pointer Router Registry",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -9,6 +9,7 @@
     "created",
     "status",
     "purpose",
+    "profile",
     "tree_depth_invariant",
     "route_index_key_rule",
     "materialization_defaults",
@@ -28,6 +29,9 @@
     },
     "purpose": {
       "type": "string"
+    },
+    "profile": {
+      "$ref": "#/$defs/profile"
     },
     "tree_depth_invariant": {
       "type": "object",
@@ -81,6 +85,63 @@
     }
   },
   "$defs": {
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "display_name",
+        "router_family",
+        "template_family",
+        "taxonomy_unit",
+        "source_unit",
+        "evidence_unit",
+        "current_scope",
+        "extension_notes"
+      ],
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "router_family": {
+          "const": "repo_taxonomy_pointer_router"
+        },
+        "template_family": {
+          "enum": [
+            "ai_capability_pointer_router",
+            "paper_repo_taxonomy_pointer_router"
+          ]
+        },
+        "taxonomy_unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_unit": {
+          "const": "github_repository"
+        },
+        "evidence_unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "current_scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "extension_notes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        }
+      }
+    },
     "source_id": {
       "type": "string",
       "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
@@ -375,6 +436,33 @@
         "source_card_path": {
           "$ref": "#/$defs/locator_path"
         },
+        "paper": {
+          "$ref": "#/$defs/paper_descriptor"
+        },
+        "artifact_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "topic_tags": {
+          "$ref": "#/$defs/string_list"
+        },
+        "question_types": {
+          "$ref": "#/$defs/string_list"
+        },
+        "claim_scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "preferred_evidence_order": {
+          "$ref": "#/$defs/string_list"
+        },
+        "paired_assets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/paired_asset"
+          },
+          "uniqueItems": true
+        },
         "authority_level": {
           "type": "string"
         },
@@ -419,6 +507,72 @@
           }
         }
       }
+    },
+    "paper_descriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "paper_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "citation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "paired_asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "locator",
+        "materialization_status"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "paper",
+            "repo",
+            "benchmark",
+            "dataset",
+            "docs",
+            "other"
+          ]
+        },
+        "locator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "materialization_status": {
+          "enum": [
+            "materialized_source",
+            "non_materialized_context",
+            "external_pointer"
+          ]
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "string_list": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1,
+      "uniqueItems": true
     },
     "last_verified": {
       "type": "object",

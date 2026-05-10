@@ -1,0 +1,13 @@
+profile:
+  profile_id: "<profile_id>"
+  display_name: "<Display Name>"
+  router_family: "repo_taxonomy_pointer_router"
+  template_family: "paper_repo_taxonomy_pointer_router"
+  taxonomy_unit: "<route_unit>"
+  source_unit: "github_repository"
+  evidence_unit: "raw_repo_file_or_local_refreshed_worktree_file"
+  current_scope: "<one sentence describing the paper + repo taxonomy>"
+  extension_notes:
+    - "Routes group paper-linked repositories by <method_family_or_evaluation_role>."
+    - "Only HTTPS GitHub repositories on main are first-class materialized sources in the current implementation."
+    - "Non-GitHub paper artifacts require explicit schema and script extension before materialization."

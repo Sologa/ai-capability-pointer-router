@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Draft materialization planner for ai-capability-pointer-router.
+"""Draft materialization planner for a repo taxonomy pointer router.
 
 This implementation is the read-only planner. It prints the declared plan and
 never clones, fetches, installs, runs hooks, or executes repo code. Local cache

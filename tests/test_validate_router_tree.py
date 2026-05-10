@@ -434,6 +434,51 @@ class RouterTreeValidationTests(unittest.TestCase):
             self.assertNotEqual(proc.returncode, 0)
             self.assertIn("schema violation", proc.stderr)
 
+    def test_registry_requires_profile_metadata(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            registry.pop("profile")
+            write_registry(root, registry)
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("profile", proc.stderr)
+
+    def test_registry_accepts_optional_paper_repo_metadata(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            registry["sources"]["promptfoo-promptfoo"].update(
+                {
+                    "paper": {
+                        "paper_id": "example-paper",
+                        "title": "Example Paper",
+                        "citation": "Example 2026",
+                        "url": "https://example.com/paper",
+                    },
+                    "artifact_role": "benchmark_release",
+                    "topic_tags": ["eval", "redteam"],
+                    "question_types": ["implementation_detail", "benchmark_setup"],
+                    "claim_scope": "Repo behavior after raw-file verification.",
+                    "preferred_evidence_order": ["local_refreshed_worktree", "live_upstream_raw_file"],
+                    "paired_assets": [
+                        {
+                            "kind": "paper",
+                            "locator": "https://example.com/paper",
+                            "materialization_status": "non_materialized_context",
+                        },
+                        {
+                            "kind": "repo",
+                            "locator": "https://github.com/promptfoo/promptfoo",
+                            "materialization_status": "materialized_source",
+                        },
+                    ],
+                }
+            )
+            write_registry(root, registry)
+            proc = self.run_validator(root)
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+
     def test_old_refresh_all_policy_fails(self) -> None:
         with copy_repo() as temp:
             root = Path(temp) / "skill"

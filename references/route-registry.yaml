@@ -2,9 +2,24 @@ version: "0.1"
 created: "2026-05-07"
 status: "staged_draft"
 purpose: >
-  Thin pointer-of-pointers registry for AI capability repos. This registry,
-  source cards, route indexes, and graph artifacts are locators only, not
-  factual evidence.
+  Thin pointer-of-pointers registry for a repo taxonomy profile. The current
+  seed profile routes AI capability repos, but the same contract can be copied
+  for paper + repo taxonomies. This registry, source cards, route indexes, and
+  graph artifacts are locators only, not factual evidence.
+
+profile:
+  profile_id: "ai_capability"
+  display_name: "AI Capability Pointer Router"
+  router_family: "repo_taxonomy_pointer_router"
+  template_family: "ai_capability_pointer_router"
+  taxonomy_unit: "category_route"
+  source_unit: "github_repository"
+  evidence_unit: "raw_repo_file_or_local_refreshed_worktree_file"
+  current_scope: "Seed profile for agent skill infrastructure, AI capability repos, and evaluation tooling."
+  extension_notes:
+    - "For a paper + repo taxonomy router, copy the templates under templates/paper-repo-taxonomy/ and replace this profile, routes, sources, category routers, source cards, SKILL.md frontmatter, and agents/openai.yaml."
+    - "The current materializer supports GitHub repositories on main. Papers that live only as PDFs, arXiv pages, Zenodo records, Hugging Face repos, GitLab repos, or local files need an explicit schema and script extension before they can be first-class materialized sources."
+    - "Keep the three-layer route boundary and locator-only evidence boundary when changing the taxonomy."
 
 tree_depth_invariant:
   root: "SKILL.md 只能選 category。"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local-only repo cache refresher for ai-capability-pointer-router.
+"""Local-only repo cache refresher for a repo taxonomy pointer router.
 
 This script is intentionally local-output only. It clones or refreshes selected
 GitHub repos under temp_artifact/repo_pointer_router_cache/, writes locator

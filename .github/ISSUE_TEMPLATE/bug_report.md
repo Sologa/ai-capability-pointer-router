@@ -15,8 +15,8 @@ assignees: ""
 ## Reproduction
 
 ```sh
-python validation/validate_router_tree.py .
-python -m unittest discover -s tests
+python3 validation/validate_router_tree.py .
+python3 -m unittest discover -s tests
 ```
 
 ## Relevant files

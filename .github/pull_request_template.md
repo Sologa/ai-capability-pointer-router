@@ -4,8 +4,8 @@
 
 ## Checks
 
-- [ ] `python validation/validate_router_tree.py .`
-- [ ] `python -m unittest discover -s tests`
+- [ ] `python3 validation/validate_router_tree.py .`
+- [ ] `python3 -m unittest discover -s tests`
 - [ ] Upstream anchors checked if `references/route-registry.yaml` changed
 - [ ] Local refresh checked if materialization or graph scope changed
 

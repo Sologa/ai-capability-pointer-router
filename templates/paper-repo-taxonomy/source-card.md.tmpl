@@ -1,0 +1,59 @@
+---
+source_id: <source_id>
+category: <route_id>
+repo: https://github.com/<owner>/<repo>
+repo_url: https://github.com/<owner>/<repo>.git
+authority_level: <paper_code_repo|benchmark_release|reference_implementation|secondary_tooling>
+refresh_sensitivity: <low|medium|high|very_high>
+stale_after_hours: <hours>
+materialization_mode: materialize_on_first_use
+implementation_status: local_refresh_enabled
+graph_enabled: true
+do_not_use_for:
+  - <unsupported_claim_or_task>
+---
+
+# Source Card: `<source_id>`
+
+This source card is a locator, not evidence. Read raw upstream files or a refreshed local worktree before making factual claims.
+
+## Use For
+
+- <paper-linked repo behavior>
+- <implementation detail, benchmark artifact, prompt, data release, or evaluation code>
+
+## Do Not Use For
+
+- <unsupported claim>
+- <paper artifact that is not present in the GitHub repo>
+
+## Paper / Repo Identity
+
+- Paper: <paper title or citation, if known>
+- Repo: `https://github.com/<owner>/<repo>`
+- Role in taxonomy: <why this source belongs under `<route_id>`>
+
+## Read First
+
+- `<path/from/repo/root>`: <what this anchor is expected to answer>
+
+## Route Index / Anchors
+
+- `<source_id>/<local_route>`
+  - `<path/from/repo/root>`: <why this file is the right locator>
+
+## Materialization
+
+Use source-scoped refresh only when current repo evidence or local cache is needed:
+
+```sh
+python3 scripts/local_refresh_repos.py \
+  --registry references/route-registry.yaml \
+  --source <source_id>
+```
+
+After refresh, read files from `temp_artifact/repo_pointer_router_cache/repos/<source_id>/worktree/` before falling back to live upstream raw files.
+
+## Evidence Boundary
+
+This source card, route indexes, manifests, and locator graphs do not prove repo behavior. They only point to files that must be read before making claims.

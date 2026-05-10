@@ -5,7 +5,7 @@
 ## 三層規則
 
 0. Root `SKILL.md`: 只能選 category。
-1. Category-scoped refresh: 選定 category 後，若問題需要 current repo evidence 或 local cache，執行 `python scripts/local_refresh_repos.py --registry references/route-registry.yaml --category <route_id>`。
+1. Category-scoped refresh: 選定 category 後，若問題需要 current repo evidence 或 local cache，執行 `python3 scripts/local_refresh_repos.py --registry references/route-registry.yaml --category <route_id>`。
 2. Category router: 只能選 source card 或 materialization decision。
 3. Source card: 只能選 anchor、manifest、route index、local worktree 或 graph locator。
 4. Raw repo file: 只有最後一步才讀，而且必須有明確需求；優先讀 local refreshed worktree。

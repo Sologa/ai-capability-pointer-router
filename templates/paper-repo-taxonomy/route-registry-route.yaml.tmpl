@@ -1,0 +1,8 @@
+  <route_id>:
+    route_id: "<route_id>"
+    router_doc: "references/category-routers/<route_id>.md"
+    description: "<what user intent or paper/repo family this route handles>"
+    sources:
+      - "<source_id>"
+    default_read_strategy: "source_card_then_anchor_files"
+    materialization_decision: "Refresh this route only when current repo behavior, cross-file evidence, or local cache is needed."
