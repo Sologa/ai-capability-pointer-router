@@ -42,7 +42,7 @@ Recommended use:
 
 For paper + repo work, common route units are paper family, method family, benchmark family, implementation role, or evaluation role. Common source units are public GitHub repos tied to a paper, benchmark, data release, or reference implementation. Do not force non-GitHub paper artifacts into the repo materializer without extending the contract first.
 
-The registry schema allows optional paper-facing metadata on each source: `paper`, `artifact_role`, `topic_tags`, `question_types`, `claim_scope`, `preferred_evidence_order`, and `paired_assets`. These fields make a paper/repo pairing explicit while keeping the current materializer scoped to GitHub repo anchors.
+The registry schema allows optional paper-facing metadata on each source: `paper`, `artifact_role`, `topic_tags`, `question_types`, `claim_scope`, `preferred_evidence_order`, and `paired_assets`. These fields make a paper/repo pairing explicit while keeping the current materializer scoped to GitHub repo anchors. They are validated when present, so incomplete paper metadata, placeholder URLs, non-GitHub materialized repo assets, and materialized paper assets are rejected before review.
 
 ## Contract Files
 

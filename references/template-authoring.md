@@ -43,14 +43,15 @@ Each source is currently a GitHub repository. Put paper identity in source prose
 - paper-specific reproduction notebooks or configs
 - source code paths that implement an algorithm described in the paper
 
-The registry schema also allows optional paper-facing source metadata:
+The registry schema also allows optional paper-facing source metadata. If these fields are present, they are validated more strictly than free prose:
 
-- `paper`: paper id, title, citation, and URL.
-- `artifact_role`: the repo's role, such as paper code repo, benchmark release, or reference implementation.
-- `topic_tags` and `question_types`: routing hints for the source.
+- `paper`: paper id, title, citation, and URI.
+- `artifact_role`: one of `paper_code_repo`, `benchmark_release`, `reference_implementation`, or `secondary_tooling`.
+- `topic_tags`: routing hints for the source.
+- `question_types`: one or more supported question types such as `implementation_detail`, `benchmark_setup`, or `method_mapping`.
 - `claim_scope`: what claims the source can support after raw-file verification.
-- `preferred_evidence_order`: where to look first when evidence is needed.
-- `paired_assets`: non-materialized paper pointers and materialized repo pointers that belong together.
+- `preferred_evidence_order`: validated evidence steps such as `local_refreshed_worktree` and `live_upstream_raw_file`.
+- `paired_assets`: non-materialized paper pointers and materialized GitHub repo pointers that belong together.
 
 These fields describe the taxonomy. They do not change the current materializer, which still refreshes only GitHub repositories.
 

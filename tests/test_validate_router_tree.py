@@ -479,6 +479,113 @@ class RouterTreeValidationTests(unittest.TestCase):
             proc = self.run_validator(root)
             self.assertEqual(proc.returncode, 0, proc.stderr)
 
+    def test_registry_rejects_non_main_allowed_refs(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            registry["sources"]["promptfoo-promptfoo"]["materialization"]["allowed_refs"] = ["main", "tags"]
+            write_registry(root, registry)
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("allowed_refs", proc.stderr)
+
+    def test_registry_rejects_repo_placeholder(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            source = registry["sources"]["promptfoo-promptfoo"]
+            source["repo"] = "https://github.com/<owner>/<repo>"
+            source["repo_url"] = "https://github.com/<owner>/<repo>.git"
+            source["materialization"]["repo_url"] = "https://github.com/<owner>/<repo>.git"
+            write_registry(root, registry)
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("unresolved template placeholder", proc.stderr)
+
+    def test_registry_rejects_paper_url_placeholder(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            registry["sources"]["promptfoo-promptfoo"]["paper"] = {
+                "paper_id": "example-paper",
+                "title": "Example Paper",
+                "citation": "Example 2026",
+                "url": "<paper_url>",
+            }
+            write_registry(root, registry)
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("unresolved template placeholder", proc.stderr)
+
+    def test_source_card_rejects_prose_placeholder(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            card = root / "references/source-cards/promptfoo-promptfoo.md"
+            card.write_text(
+                card.read_text(encoding="utf-8") + "\nPlaceholder leak: `<path/from/repo/root>`.\n",
+                encoding="utf-8",
+            )
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("unresolved template placeholder", proc.stderr)
+
+    def test_registry_rejects_empty_paper_metadata(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            registry["sources"]["promptfoo-promptfoo"]["paper"] = {}
+            write_registry(root, registry)
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("schema violation", proc.stderr)
+
+    def test_registry_rejects_bad_paper_url(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            registry["sources"]["promptfoo-promptfoo"]["paper"] = {
+                "paper_id": "example-paper",
+                "title": "Example Paper",
+                "citation": "Example 2026",
+                "url": "not a uri",
+            }
+            write_registry(root, registry)
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("schema violation", proc.stderr)
+
+    def test_registry_rejects_materialized_repo_with_non_github_locator(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            registry["sources"]["promptfoo-promptfoo"]["paired_assets"] = [
+                {
+                    "kind": "repo",
+                    "locator": "https://example.com/not-a-github-repo",
+                    "materialization_status": "materialized_source",
+                }
+            ]
+            write_registry(root, registry)
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("schema violation", proc.stderr)
+
+    def test_registry_rejects_materialized_paper_asset(self) -> None:
+        with copy_repo() as temp:
+            root = Path(temp) / "skill"
+            registry = load_registry(root)
+            registry["sources"]["promptfoo-promptfoo"]["paired_assets"] = [
+                {
+                    "kind": "paper",
+                    "locator": "https://example.com/paper.pdf",
+                    "materialization_status": "materialized_source",
+                }
+            ]
+            write_registry(root, registry)
+            proc = self.run_validator(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("schema violation", proc.stderr)
+
     def test_old_refresh_all_policy_fails(self) -> None:
         with copy_repo() as temp:
             root = Path(temp) / "skill"

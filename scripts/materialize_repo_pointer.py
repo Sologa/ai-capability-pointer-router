@@ -33,7 +33,7 @@ ALLOWED_IMPLEMENTATION_STATUSES = {"local_refresh_enabled"}
 SOURCE_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 CACHE_ROOT = "temp_artifact/repo_pointer_router_cache"
 CACHE_PREFIX = f"{CACHE_ROOT}/"
-ALLOWED_REF_VALUES = {"main", "tags", "commit_sha"}
+ALLOWED_REF_VALUES = {"main"}
 
 
 def load_registry(path: Path) -> dict:
@@ -167,8 +167,8 @@ def validate_source(registry: dict, source_id: str) -> dict:
         raise ValueError(f"{source_id}: source.repo and repo_url must point to the same GitHub repo")
 
     allowed_refs = materialization.get("allowed_refs")
-    if not isinstance(allowed_refs, list) or not all(item in ALLOWED_REF_VALUES for item in allowed_refs):
-        raise ValueError(f"{source_id}: allowed_refs must be a list drawn from {sorted(ALLOWED_REF_VALUES)}")
+    if allowed_refs != ["main"]:
+        raise ValueError(f"{source_id}: allowed_refs must be exactly ['main']")
 
     defaults = registry.get("materialization_defaults", {})
     cache_root = defaults.get("cache_root", CACHE_ROOT)

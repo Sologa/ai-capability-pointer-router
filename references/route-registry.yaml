@@ -51,8 +51,6 @@ materialization_defaults:
   default_ref: "main"
   allowed_refs:
     - "main"
-    - "tags"
-    - "commit_sha"
   pin_policy: "record_resolved_commit"
   update_policy: "fetch_latest_on_explicit_use"
   graph_semantics: "locator_only"
@@ -117,7 +115,7 @@ sources:
       implementation_status: "local_refresh_enabled"
       repo_url: "https://github.com/agentskills/agentskills.git"
       default_ref: "main"
-      allowed_refs: ["main", "tags", "commit_sha"]
+      allowed_refs: ["main"]
       pin_policy: "record_resolved_commit"
       update_policy: "fetch_latest_on_explicit_use"
       manifest:
@@ -183,7 +181,7 @@ sources:
       implementation_status: "local_refresh_enabled"
       repo_url: "https://github.com/openai/skills.git"
       default_ref: "main"
-      allowed_refs: ["main", "tags", "commit_sha"]
+      allowed_refs: ["main"]
       pin_policy: "record_resolved_commit"
       update_policy: "fetch_latest_on_explicit_use"
       manifest:
@@ -253,7 +251,7 @@ sources:
       implementation_status: "local_refresh_enabled"
       repo_url: "https://github.com/vercel-labs/skills.git"
       default_ref: "main"
-      allowed_refs: ["main", "tags", "commit_sha"]
+      allowed_refs: ["main"]
       pin_policy: "record_resolved_commit"
       update_policy: "fetch_latest_on_explicit_use"
       manifest:
@@ -338,7 +336,7 @@ sources:
       implementation_status: "local_refresh_enabled"
       repo_url: "https://github.com/promptfoo/promptfoo.git"
       default_ref: "main"
-      allowed_refs: ["main", "tags", "commit_sha"]
+      allowed_refs: ["main"]
       pin_policy: "record_resolved_commit"
       update_policy: "fetch_latest_on_explicit_use"
       manifest:

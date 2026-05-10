@@ -328,12 +328,11 @@
       "type": "array",
       "items": {
         "enum": [
-          "main",
-          "tags",
-          "commit_sha"
+          "main"
         ]
       },
       "minItems": 1,
+      "maxItems": 1,
       "uniqueItems": true
     },
     "safety_policy": {
@@ -440,21 +439,30 @@
           "$ref": "#/$defs/paper_descriptor"
         },
         "artifact_role": {
-          "type": "string",
-          "minLength": 1
+          "$ref": "#/$defs/artifact_role"
         },
         "topic_tags": {
           "$ref": "#/$defs/string_list"
         },
         "question_types": {
-          "$ref": "#/$defs/string_list"
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/question_type"
+          },
+          "minItems": 1,
+          "uniqueItems": true
         },
         "claim_scope": {
           "type": "string",
           "minLength": 1
         },
         "preferred_evidence_order": {
-          "$ref": "#/$defs/string_list"
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_step"
+          },
+          "minItems": 1,
+          "uniqueItems": true
         },
         "paired_assets": {
           "type": "array",
@@ -511,6 +519,12 @@
     "paper_descriptor": {
       "type": "object",
       "additionalProperties": false,
+      "required": [
+        "paper_id",
+        "title",
+        "citation",
+        "url"
+      ],
       "properties": {
         "paper_id": {
           "type": "string",
@@ -526,9 +540,38 @@
         },
         "url": {
           "type": "string",
-          "minLength": 1
+          "format": "uri",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9+.-]*://.+"
         }
       }
+    },
+    "artifact_role": {
+      "enum": [
+        "paper_code_repo",
+        "benchmark_release",
+        "reference_implementation",
+        "secondary_tooling"
+      ]
+    },
+    "question_type": {
+      "enum": [
+        "paper_repo_identity",
+        "method_mapping",
+        "implementation_detail",
+        "benchmark_setup",
+        "evaluation_protocol",
+        "prompt_or_config",
+        "dataset_or_release",
+        "reproduction_workflow"
+      ]
+    },
+    "evidence_step": {
+      "enum": [
+        "local_refreshed_worktree",
+        "live_upstream_raw_file",
+        "source_card_locator",
+        "non_materialized_context"
+      ]
     },
     "paired_asset": {
       "type": "object",
@@ -563,7 +606,54 @@
         "notes": {
           "type": "string"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "repo"
+              },
+              "materialization_status": {
+                "const": "materialized_source"
+              }
+            },
+            "required": [
+              "kind",
+              "materialization_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "locator": {
+                "$ref": "#/$defs/repo_display_url"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "paper"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "materialization_status": {
+                "enum": [
+                  "non_materialized_context",
+                  "external_pointer"
+                ]
+              }
+            }
+          }
+        }
+      ]
     },
     "string_list": {
       "type": "array",

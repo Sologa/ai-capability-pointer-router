@@ -21,8 +21,8 @@ do_not_use_for:
 ## Identity
 
 - `source_id`: `openai-skills`
-- `repo`: <https://github.com/openai/skills>
-- `repo_url`: <https://github.com/openai/skills.git>
+- `repo`: `https://github.com/openai/skills`
+- `repo_url`: `https://github.com/openai/skills.git`
 - `authority_level`: `official_codex_skill_catalog`
 - `refresh_sensitivity`: `high`
 

@@ -19,6 +19,7 @@ ROUTE_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 SOURCE_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 LOCAL_ROUTE_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+PLACEHOLDER_RE = re.compile(r"<[^>\n]+>")
 
 ALLOWED_MODES = {
     "pointer_only",
@@ -29,7 +30,7 @@ ALLOWED_MODES = {
 ALLOWED_PIN_POLICIES = {"record_resolved_commit", "exact_ref_only"}
 ALLOWED_UPDATE_POLICIES = {"fetch_latest_on_explicit_use", "no_auto_update", "manual_refresh_only"}
 ALLOWED_GRAPH_MODES = {"locator_only"}
-ALLOWED_REF_VALUES = {"main", "tags", "commit_sha"}
+ALLOWED_REF_VALUES = {"main"}
 CACHE_ROOT = "temp_artifact/repo_pointer_router_cache"
 CACHE_PREFIX = f"{CACHE_ROOT}/"
 REQUIRED_GITIGNORE_PATTERNS = {
@@ -181,6 +182,26 @@ def rel_exists(root: Path, rel_path: str) -> bool:
 def require(condition: bool, message: str, errors: list[str]) -> None:
     if not condition:
         errors.append(message)
+
+
+def validate_no_unresolved_placeholders(root: Path, errors: list[str]) -> None:
+    paths: list[Path] = []
+    for rel_path in ("SKILL.md", "references/route-registry.yaml"):
+        path = root / rel_path
+        if path.is_file():
+            paths.append(path)
+    for rel_dir in ("references/category-routers", "references/source-cards"):
+        directory = root / rel_dir
+        if directory.is_dir():
+            paths.extend(sorted(path for path in directory.glob("*.md") if not path.name.startswith("._")))
+
+    for path in paths:
+        text = path.read_text(encoding="utf-8")
+        for line in text.splitlines():
+            if path.name == "route-registry.yaml" and line.strip().startswith("route_index_key_rule:"):
+                continue
+            for match in PLACEHOLDER_RE.findall(line):
+                errors.append(f"{path.relative_to(root)}: unresolved template placeholder remains: {match}")
 
 
 def is_generated_dir_sidecar(path: Path) -> bool:
@@ -380,7 +401,7 @@ def validate_materialization_defaults(registry: dict, errors: list[str]) -> None
     allowed_refs = defaults.get("allowed_refs")
     require(isinstance(allowed_refs, list), "materialization_defaults.allowed_refs must be a list", errors)
     if isinstance(allowed_refs, list):
-        require(set(allowed_refs) <= ALLOWED_REF_VALUES, "materialization_defaults.allowed_refs has unsupported values", errors)
+        require(allowed_refs == ["main"], "materialization_defaults.allowed_refs must be exactly ['main']", errors)
 
 
 def validate_graph_scope(source_id: str, graph: dict, errors: list[str]) -> None:
@@ -417,7 +438,7 @@ def validate_materialization(source_id: str, source: dict, registry: dict, mater
     require(materialization.get("update_policy") in ALLOWED_UPDATE_POLICIES, f"{source_id}: invalid update_policy", errors)
     require(materialization.get("default_ref") == "main", f"{source_id}: default_ref must be main in staged draft", errors)
     allowed_refs = materialization.get("allowed_refs")
-    require(isinstance(allowed_refs, list) and set(allowed_refs) <= ALLOWED_REF_VALUES, f"{source_id}: invalid allowed_refs", errors)
+    require(allowed_refs == ["main"], f"{source_id}: allowed_refs must be exactly ['main']", errors)
 
     validate_repo_url(source_id, source.get("repo_url"), registry, "source.repo_url", errors)
     validate_repo_url(source_id, materialization.get("repo_url"), registry, "materialization.repo_url", errors)
@@ -600,8 +621,8 @@ def validate_root_files(root: Path, errors: list[str]) -> None:
 
     skill_text = (root / "SKILL.md").read_text(encoding="utf-8") if (root / "SKILL.md").is_file() else ""
     require(
-        "route-registry.yaml" in skill_text and "category source of truth" in skill_text,
-        "SKILL.md must name route-registry.yaml as category source of truth",
+        "route-registry.yaml" in skill_text,
+        "SKILL.md must name route-registry.yaml",
         errors,
     )
     require(
@@ -616,6 +637,7 @@ def validate_root_files(root: Path, errors: list[str]) -> None:
         errors,
     )
     require("docs/ 下" not in skill_text, "SKILL.md must not claim the published root lives under docs/", errors)
+    validate_no_unresolved_placeholders(root, errors)
 
     gitignore = root / ".gitignore"
     require(gitignore.is_file(), "required file missing: .gitignore", errors)

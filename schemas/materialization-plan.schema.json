@@ -211,12 +211,11 @@
       "type": "array",
       "items": {
         "enum": [
-          "main",
-          "tags",
-          "commit_sha"
+          "main"
         ]
       },
       "minItems": 1,
+      "maxItems": 1,
       "uniqueItems": true
     },
     "locator_path": {

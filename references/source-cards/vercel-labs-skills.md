@@ -21,8 +21,8 @@ do_not_use_for:
 ## Identity
 
 - `source_id`: `vercel-labs-skills`
-- `repo`: <https://github.com/vercel-labs/skills>
-- `repo_url`: <https://github.com/vercel-labs/skills.git>
+- `repo`: `https://github.com/vercel-labs/skills`
+- `repo_url`: `https://github.com/vercel-labs/skills.git`
 - `authority_level`: `cross_agent_skill_cli`
 - `refresh_sensitivity`: `high`
 

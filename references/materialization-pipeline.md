@@ -31,6 +31,8 @@ materialization 有兩條路徑：category/source-scoped local refresh，以及�
 - `max_files`
 - `max_bytes`
 
+現階段 local refresh 只實作 upstream `main` branch，所以 `allowed_refs` 必須是 `["main"]`。`tags` / `commit_sha` 若未來需要支援，必須先加入對應 checkout / validation path，再擴 schema 與 tests。
+
 ## Safety
 
 script 不得自動執行 package install、repo scripts、hooks、submodules 或任意 build。existing worktree refresh 必須強制 `core.hooksPath=/dev/null`、`submodule.recurse=false`。`read_first` 與 route-index anchors 必須驗證為 worktree 內 regular files，不能是 symlink 或逃逸路徑。graph/index 都是 locator only，不是 evidence。cache 位置維持在 `temp_artifact/repo_pointer_router_cache/`，且必須保持 git-ignored。

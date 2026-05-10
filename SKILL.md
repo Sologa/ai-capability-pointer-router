@@ -10,9 +10,9 @@ description: Use when a user asks which AI capability repository to consult for 
 ## 必守路由
 
 0. 判斷使用者問題屬於哪個 category，只能選 category router。
-1. 選定 category 後，若問題需要 current repo evidence 或 local cache，執行 `python3 scripts/local_refresh_repos.py --registry references/route-registry.yaml --category <route_id>`。這只 refresh 該 category 的 sources；腳本會先做 remote HEAD freshness check，clean up-to-date 時不 fetch/reset，也不重建 graph；若本地 cache dirty，會不 fetch 但 reset/clean 後重建 locator artifacts。
-2. 讀取對應 `references/category-routers/<route_id>.md`，只能選 source card 或 materialization decision。
-3. 讀取對應 `references/source-cards/<source_id>.md`，只能選 anchor / manifest / index / local worktree / graph locator。需要單一 repo 時可用 `python3 scripts/local_refresh_repos.py --registry references/route-registry.yaml --source <source_id>`。
+1. 選定 category 後，若問題需要 current repo evidence 或 local cache，執行 `python3 scripts/local_refresh_repos.py --registry references/route-registry.yaml --category {route_id}`。這只 refresh 該 category 的 sources；腳本會先做 remote HEAD freshness check，clean up-to-date 時不 fetch/reset，也不重建 graph；若本地 cache dirty，會不 fetch 但 reset/clean 後重建 locator artifacts。
+2. 讀取對應 `references/category-routers/{route_id}.md`，只能選 source card 或 materialization decision。
+3. 讀取對應 `references/source-cards/{source_id}.md`，只能選 anchor / manifest / index / local worktree / graph locator。需要單一 repo 時可用 `python3 scripts/local_refresh_repos.py --registry references/route-registry.yaml --source {source_id}`。
 4. 只有最後一步、且問題需要 repo behavior / API / CLI / current facts / cross-file evidence 時，才開 raw repo file；優先讀 local refreshed worktree，必要時再讀 live upstream raw file。
 
 ## 預設讀取量

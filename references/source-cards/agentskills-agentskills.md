@@ -21,8 +21,8 @@ do_not_use_for:
 ## Identity
 
 - `source_id`: `agentskills-agentskills`
-- `repo`: <https://github.com/agentskills/agentskills>
-- `repo_url`: <https://github.com/agentskills/agentskills.git>
+- `repo`: `https://github.com/agentskills/agentskills`
+- `repo_url`: `https://github.com/agentskills/agentskills.git`
 - `authority_level`: `canonical_spec_anchor`
 - `refresh_sensitivity`: `high`
 

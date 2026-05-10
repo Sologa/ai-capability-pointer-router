@@ -21,8 +21,8 @@ do_not_use_for:
 ## Identity
 
 - `source_id`: `promptfoo-promptfoo`
-- `repo`: <https://github.com/promptfoo/promptfoo>
-- `repo_url`: <https://github.com/promptfoo/promptfoo.git>
+- `repo`: `https://github.com/promptfoo/promptfoo`
+- `repo_url`: `https://github.com/promptfoo/promptfoo.git`
 - `authority_level`: `eval_redteam_framework`
 - `refresh_sensitivity`: `very_high`
 

@@ -30,7 +30,7 @@ SOURCE_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 ROUTE_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 CACHE_ROOT = "temp_artifact/repo_pointer_router_cache"
 CACHE_PREFIX = f"{CACHE_ROOT}/"
-ALLOWED_REF_VALUES = {"main", "tags", "commit_sha"}
+ALLOWED_REF_VALUES = {"main"}
 GRAPH_WRITER_VERSION = "locator_graph_v2"
 GRAPH_META_SCHEMA_VERSION = "graph_meta_v1"
 SEMANTIC_EXTENSIONS = {
@@ -630,8 +630,8 @@ def refresh_source(skill_root: Path, registry: dict, source_id: str, *, force: b
     if ref != "main":
         raise RefreshError(f"{source_id}: local refresh currently supports default_ref main only")
     allowed_refs = materialization.get("allowed_refs")
-    if not isinstance(allowed_refs, list) or not set(allowed_refs) <= ALLOWED_REF_VALUES:
-        raise RefreshError(f"{source_id}: allowed_refs must be drawn from {sorted(ALLOWED_REF_VALUES)}")
+    if allowed_refs != ["main"]:
+        raise RefreshError(f"{source_id}: local refresh currently supports allowed_refs ['main'] only")
 
     git_state = clone_or_refresh(source_id, repo_url, worktree, ref, force=force)
     resolved_commit = git_state["resolved_commit"]
